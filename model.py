@@ -5,6 +5,11 @@ import torchvision.datasets as dsets
 from torch.nn.functional import relu
 import itertools
 from torch.autograd import Variable
+import re
+import os
+from shutil import copyfile
+import numpy as np
+
 
 IMAGE_DIMS = torch.Tensor([3] + 2*[128])
 MOCK_IMAGE = torch.rand(tuple(IMAGE_DIMS))
@@ -60,6 +65,47 @@ class Net(object):
 
     def __call__(self, x):
         return self.E(x)
+
+
+def sort_to_classes(root, print_cycle=np.inf):
+    # Example UTKFace cropped and aligned image file format: [age]_[gender]_[race]_[date&time].jpg.chip.jpg
+    # Should be 23613 images, use print_cycle >= 1000
+    utkface_original_image_format = re.compile('^(\d+)_\d+_\d+_(\d+)\.jpg\.chip\.jpg$')
+    files = iter([f for f in os.listdir(root) if os.path.isfile(os.path.join(root, f))])
+    copied_count = 0
+    sorted_folder = os.path.join(root, 'sorted')
+    if not os.path.isdir(sorted_folder):
+        os.mkdir(sorted_folder)
+
+    for f in files:
+        matcher = utkface_original_image_format.match(f)
+        if matcher is not None:
+            age, dtime = matcher.groups()
+            folder = os.path.join(sorted_folder, str(int(int(age) / 5)))
+            dst = os.path.join(folder, dtime+'.jpg')
+            if os.path.isfile(dst):
+                continue
+            if not os.path.isdir(folder):
+                os.mkdir(folder)
+            src = os.path.join(root, f)
+            copyfile(src, dst)
+            copied_count += 1
+            if copied_count % print_cycle == 0:
+                print('Copied %d files.' % copied_count)
+
+
+def get_utkface_dataset(root):
+    ret = lambda: torchvision.datasets.ImageFolder(os.path.join(root, 'sorted'))
+    try:
+        return ret()
+    except (RuntimeError, FileNotFoundError):
+        sort_to_classes(root, print_cycle=1000)
+        return ret()
+
+
+train_dataset = get_utkface_dataset('./data/UTKFace')
+batch_size = 100
+train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
 
 
 # Turn image into a batch of size 1, 128x128, RGB
