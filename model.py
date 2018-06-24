@@ -9,12 +9,13 @@ import re
 import os
 from shutil import copyfile
 import numpy as np
+import torchvision
 
-
-IMAGE_DIMS = torch.Tensor([3] + 2*[128])
+NUM_OF_MOCK_IMGS = np.random.randint(2,16)
+IMAGE_DIMS = torch.Tensor([NUM_OF_MOCK_IMGS, 3, 128, 128])
 MOCK_IMAGE = torch.rand(tuple(IMAGE_DIMS))
-IMAGE_LENGTH = IMAGE_DIMS.data[1]
-IMAGE_DEPTH = IMAGE_DIMS.data[0]
+IMAGE_LENGTH = IMAGE_DIMS.data[2]
+IMAGE_DEPTH = IMAGE_DIMS.data[1]
 STEP_SIZE = 2  # kernel and stride
 NUM_ENCODER_CHANNELS = 64
 NUM_Z_CHANNELS = 50
@@ -30,15 +31,15 @@ class Encoder(nn.Module):
 
         for i in range(num_conv_layers):
             conv_layers.append(
-                nn.Conv2d(
-                    in_channels=(NUM_ENCODER_CHANNELS * (2**(i-1))) if i > 0 else int(IMAGE_DEPTH),
-                    out_channels=NUM_ENCODER_CHANNELS * (2**i),
-                    kernel_size=STEP_SIZE,
-                    stride=STEP_SIZE
+                nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=(NUM_ENCODER_CHANNELS * (2**(i-1))) if i > 0 else int(IMAGE_DEPTH),
+                        out_channels=NUM_ENCODER_CHANNELS * (2**i),
+                        kernel_size=STEP_SIZE,
+                        stride=STEP_SIZE
+                    ),
+                    nn.ReLU()
                 )
-            )
-            conv_layers.append(
-                nn.ReLU()
             )
 
         self.convs = nn.Sequential(*conv_layers)
@@ -50,21 +51,47 @@ class Encoder(nn.Module):
     def forward(self, input_face):
         out = input_face
         out = self.convs(out)
-        print(1)
         out = out.view(out.size(0), -1) # flatten tensor
         z = self.fc(out)
-        print(2)
         return z
+
+
+class DiscriminatorZ(nn.Module):
+    def __init__(self):
+        super(DiscriminatorZ, self).__init__()
+        dims = (NUM_Z_CHANNELS, NUM_ENCODER_CHANNELS, NUM_ENCODER_CHANNELS // 2, NUM_ENCODER_CHANNELS // 4)
+        layers = []
+
+        for in_dim, out_dim in zip(dims[:-1], dims[1:]):
+            layers.append(
+                nn.Sequential(nn.Linear(in_dim, out_dim), nn.BatchNorm1d(out_dim), nn.ReLU())
+            )
+
+        layers.append(
+            nn.Sequential(nn.Linear(out_dim, 1), nn.Sigmoid())
+        )
+
+        self.layers = nn.Sequential(*layers)
+
+    def forward(self, z):
+        out = self.layers(z)
+        return out
+
 
 class Net(object):
     def __init__(self):
         self.E = Encoder()
-
-    def to(self, device):
-        self.E.to(device=device)
+        self.Dz = DiscriminatorZ()
+        self.subnets = (self.E, self.Dz)
 
     def __call__(self, x):
-        return self.E(x)
+        z = self.E(x)
+        z_disc = self.Dz(z)
+        return z_disc
+
+    def to(self, device):
+        for subnet in self.subnets:
+            subnet.to(device=device)
 
 
 def sort_to_classes(root, print_cycle=np.inf):
@@ -109,7 +136,7 @@ train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=bat
 
 
 # Turn image into a batch of size 1, 128x128, RGB
-MOCK_IMAGE.unsqueeze_(0)
+# MOCK_IMAGE.unsqueeze_(0)
 MOCK_IMAGE = MOCK_IMAGE.to(device)
 
 net = Net()
