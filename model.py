@@ -42,16 +42,20 @@ class Encoder(nn.Module):
                 )
             )
 
-        self.convs = nn.Sequential(*conv_layers)
-        self.fc = nn.Linear(
-            in_features=NUM_ENCODER_CHANNELS * (2**(num_conv_layers-1)),
-            out_features=NUM_Z_CHANNELS
+        self.conv_layers = nn.Sequential(*conv_layers)
+
+        self.fc = nn.Sequential(
+            nn.Linear(
+                in_features=NUM_ENCODER_CHANNELS * (2 ** (num_conv_layers - 1)),
+                out_features=NUM_Z_CHANNELS
+            ),
+            nn.Tanh()
         )
 
     def forward(self, input_face):
         out = input_face
-        out = self.convs(out)
-        out = out.view(out.size(0), -1) # flatten tensor
+        out = self.conv_layers(out)
+        out = out.view(out.size(0), -1)  # flatten tensor
         z = self.fc(out)
         return z
 
