@@ -11,9 +11,9 @@ from shutil import copyfile
 import numpy as np
 import torchvision
 
-NUM_OF_MOCK_IMGS = np.random.randint(2,16)
+NUM_OF_MOCK_IMGS = np.random.randint(2, 16)
 IMAGE_DIMS = torch.Tensor([NUM_OF_MOCK_IMGS, 3, 128, 128])
-MOCK_IMAGE = torch.rand(tuple(IMAGE_DIMS))
+MOCK_IMAGE = Variable(torch.rand(tuple(IMAGE_DIMS)))
 IMAGE_LENGTH = IMAGE_DIMS.data[2]
 IMAGE_DEPTH = IMAGE_DIMS.data[1]
 STEP_SIZE = 2  # kernel and stride
@@ -93,6 +93,9 @@ class Net(object):
         z_disc = self.Dz(z)
         return z_disc
 
+    def __repr__(self):
+        return os.linesep.join([repr(subnet) for subnet in self.subnets])
+
     def to(self, device):
         for subnet in self.subnets:
             subnet.to(device=device)
@@ -126,7 +129,7 @@ def sort_to_classes(root, print_cycle=np.inf):
 
 
 def get_utkface_dataset(root):
-    ret = lambda: torchvision.datasets.ImageFolder(os.path.join(root, 'sorted'))
+    ret = lambda: torchvision.datasets.ImageFolder(os.path.join(root, 'sorted'), transform=transforms.ToTensor())
     try:
         return ret()
     except (RuntimeError, FileNotFoundError):
