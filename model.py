@@ -4,7 +4,6 @@ import torchvision.transforms as transforms
 import torchvision.datasets as dsets
 from torch.nn.functional import relu
 import itertools
-from torch.autograd import Variable
 import re
 import os
 from shutil import copyfile
@@ -14,7 +13,7 @@ from collections import OrderedDict
 
 NUM_OF_MOCK_IMGS = np.random.randint(2, 16)
 IMAGE_DIMS = torch.Tensor([NUM_OF_MOCK_IMGS, 3, 128, 128])
-MOCK_IMAGE = Variable(torch.rand(tuple(IMAGE_DIMS)))
+MOCK_IMAGE = torch.rand(tuple(IMAGE_DIMS))
 IMAGE_LENGTH = IMAGE_DIMS.data[2]
 IMAGE_DEPTH = IMAGE_DIMS.data[1]
 
@@ -153,34 +152,30 @@ class Net(object):
     def __repr__(self):
         return os.linesep.join([repr(subnet) for subnet in self.subnets])
 
-    def train(self, batch_size, epochs, train_path, learning_rate):
-        train_dataset = get_utkface_dataset(train_path)
+    def train(self, utkface_path, batch_size=50, epochs=1, learning_rate=1e-3):
+        train_dataset = get_utkface_dataset(utkface_path)
         train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
         idx_to_class = {v: k for k, v in train_dataset.class_to_idx.items()}
-        e_optimizer = torch.optim.SGD(self.E.parameters(), lr=learning_rate)
-        g_optimizer = torch.optim.SGD(self.G.parameters(), lr=learning_rate)
+        eg_optimizer = torch.optim.Adam(list(self.E.parameters()) + list(self.G.parameters()), weight_decay=1.0)
         criterion = nn.MSELoss()  # L2 loss
 
 
         for epoch in range(epochs):
             for i, (images, labels) in enumerate(train_loader):
-                images = Variable(images)
                 images = images.to(device=device)
-                labels = Variable(torch.stack([str_to_tensor(idx_to_class[l]).to(device=device) for l in list(labels.numpy())]))
+                labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=device) for l in list(labels.numpy())])
                 labels = labels.to(device=device)
 
-                e_optimizer.zero_grad()
-                g_optimizer.zero_grad()
 
                 z = self.E(images)
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)
 
-                loss = criterion(images, generated)
-                loss.backward()
+                loss = criterion(generated, images)
 
-                e_optimizer.step()
-                g_optimizer.step()
+                eg_optimizer.zero_grad()
+                loss.backward()
+                eg_optimizer.step()
 
                 print("Loss is: " + str(loss.item()))
 
