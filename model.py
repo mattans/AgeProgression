@@ -128,8 +128,8 @@ class Generator(nn.Module):
                 nn.ReLU()
             ]))
 
-    def forward(self, z, age, gender):
-        z_l = torch.cat((z, age, gender), 1)
+    def forward(self, z, age=None, gender=None):
+        z_l = z if (age is None and gender is None) else torch.cat((z, age, gender), 1)
         out = self.fc(z_l)
         out = out.view(out.size(0), 1024, 8, 8)  # TODO - replace hardcoded
         for conv_layer in self.conv_layers:
@@ -153,6 +153,38 @@ class Net(object):
     def __repr__(self):
         return os.linesep.join([repr(subnet) for subnet in self.subnets])
 
+    def train(self, batch_size, epochs, train_path, learning_rate):
+        train_dataset = get_utkface_dataset(train_path)
+        train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+        idx_to_class = {v: k for k, v in train_dataset.class_to_idx.items()}
+        e_optimizer = torch.optim.SGD(self.E.parameters(), lr=learning_rate)
+        g_optimizer = torch.optim.SGD(self.G.parameters(), lr=learning_rate)
+        criterion = nn.MSELoss()  # L2 loss
+
+
+        for epoch in range(epochs):
+            for i, (images, labels) in enumerate(train_loader):
+                images = Variable(images)
+                images = images.to(device=device)
+                labels = Variable(torch.stack([str_to_tensor(idx_to_class[l]).to(device=device) for l in list(labels.numpy())]))
+                labels = labels.to(device=device)
+
+                e_optimizer.zero_grad()
+                g_optimizer.zero_grad()
+
+                z = self.E(images)
+                z_l = torch.cat((z, labels), 1)
+                generated = self.G(z_l)
+
+                loss = criterion(images, generated)
+                loss.backward()
+
+                e_optimizer.step()
+                g_optimizer.step()
+
+                print("Loss is: " + str(loss.item()))
+
+
     def to(self, device):
         for subnet in self.subnets:
             subnet.to(device=device)
@@ -165,6 +197,17 @@ FEMALE = 1
 
 from collections import namedtuple
 
+def str_to_tensor(text):
+    age_group, gender = text.split('.')
+    age_tensor = -torch.ones(NUM_AGES)
+    age_tensor[int(age_group)] *= -1
+    gender_tensor = -torch.ones(NUM_GENDERS)
+    gender_tensor[int(gender)] *= -1
+    result = torch.cat((age_tensor, gender_tensor), 0)
+    result = result.to(device=device)
+    return result
+
+
 class Label(namedtuple('Label', ('age', 'gender'))):
     def __init__(self, age, gender):
         super(Label, self).__init__()
@@ -175,16 +218,10 @@ class Label(namedtuple('Label', ('age', 'gender'))):
             self.age_group = min(4 + (_age - 20) // 10, NUM_AGES - 1)  # last (6?) age groups are for adults > 20, 10 years intervals
 
     def to_str(self):
-        return '%d_%d' % (self.age_group, self.gender)
+        return '%d.%d' % (self.age_group, self.gender)
 
     def to_tensor(self):
-        age_tensor = -torch.ones(NUM_AGES)
-        age_tensor[self.age_group] *= -1
-        gender_tensor = -torch.ones(NUM_GENDERS)
-        gender_tensor[self.gender] *= -1
-        result = torch.cat((age_tensor, gender_tensor), 0)
-        result = result.to(device=device)
-        return result
+        return str_to_tensor(self.to_str())
 
 
 def sort_to_classes(root, print_cycle=np.inf):
@@ -196,7 +233,7 @@ def sort_to_classes(root, print_cycle=np.inf):
         print('[UTKFace dset labeler] ' + text)
 
     log('Starting labeling process...')
-    files = [f for f in os.listdir(root) if os.path.isfile(os.path.join(root, f)) and utkface_original_image_format.match(f)]
+    files = [f for f in os.listdir(root) if os.path.isfile(os.path.join(root, f))]
     if not files:
         raise FileNotFoundError('No image files in '+root)
     copied_count = 0
@@ -205,8 +242,11 @@ def sort_to_classes(root, print_cycle=np.inf):
         os.mkdir(sorted_folder)
 
     for f in files:
-        srcfile = os.path.join(root, f)
+        matcher = utkface_original_image_format.match(f)
+        if matcher is None:
+            continue
         age, gender, dtime = matcher.groups()
+        srcfile = os.path.join(root, f)
         label = Label(int(age), int(gender))
         dstfolder = os.path.join(sorted_folder, label.to_str())
         dstfile = os.path.join(dstfolder, dtime+'.jpg')
@@ -221,7 +261,10 @@ def sort_to_classes(root, print_cycle=np.inf):
     log('Finished labeling process.')
 
 def get_utkface_dataset(root):
-    ret = lambda: torchvision.datasets.ImageFolder(os.path.join(root, 'labeled'), transform=transforms.ToTensor())
+    ret = lambda: torchvision.datasets.ImageFolder(os.path.join(root, 'labeled'), transform=transforms.Compose([
+        transforms.Resize(size=(128, 128)),
+        transforms.ToTensor()
+    ]))
     try:
         return ret()
     except (RuntimeError, FileNotFoundError):
