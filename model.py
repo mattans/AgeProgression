@@ -1,15 +1,18 @@
-import torch
-import torch.nn as nn
-import torchvision.transforms as transforms
-import torchvision.datasets as dsets
-from torch.nn.functional import relu
 import itertools
 import re
 import os
 from shutil import copyfile
 import numpy as np
-import torchvision
 from collections import OrderedDict
+import torch
+import torch.nn as nn
+import torchvision
+import torchvision.transforms as transforms
+from torchvision.datasets import ImageFolder
+from torch.utils.data import DataLoader
+from torch.optim import Adam
+# from torch.nn.functional import relu
+
 
 NUM_OF_MOCK_IMGS = np.random.randint(2, 16)
 IMAGE_DIMS = torch.Tensor([NUM_OF_MOCK_IMGS, 3, 128, 128])
@@ -114,10 +117,10 @@ class Generator(nn.Module):
         )
         # need to reshape now to ?,1024,8,8
 
-        self.conv_layers = nn.ModuleList()
+        self.deconv_layers = nn.ModuleList()
 
         for i in range(1, num_deconv_layers + 1):
-            self.conv_layers.add_module('g_deconv_%d' % i, nn.Sequential(*[
+            self.deconv_layers.add_module('g_deconv_%d' % i, nn.Sequential(*[
                 nn.ConvTranspose2d(
                     in_channels=int(NUM_GEN_CHANNELS // (2 ** (i - 1))),
                     out_channels=int(NUM_GEN_CHANNELS // (2 ** (i - 0))) if i < num_deconv_layers else int(IMAGE_DEPTH),
@@ -131,8 +134,8 @@ class Generator(nn.Module):
         z_l = z if (age is None and gender is None) else torch.cat((z, age, gender), 1)
         out = self.fc(z_l)
         out = out.view(out.size(0), 1024, 8, 8)  # TODO - replace hardcoded
-        for conv_layer in self.conv_layers:
-            out = conv_layer(out)
+        for deconv_layer in self.deconv_layers:
+            out = deconv_layer(out)
 
         return out
 
@@ -154,9 +157,9 @@ class Net(object):
 
     def train(self, utkface_path, batch_size=50, epochs=1, learning_rate=1e-3):
         train_dataset = get_utkface_dataset(utkface_path)
-        train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
         idx_to_class = {v: k for k, v in train_dataset.class_to_idx.items()}
-        eg_optimizer = torch.optim.Adam(list(self.E.parameters()) + list(self.G.parameters()), weight_decay=1.0)
+        eg_optimizer = Adam(list(self.E.parameters()) + list(self.G.parameters()), weight_decay=1.0)
         criterion = nn.MSELoss()  # L2 loss
 
 
@@ -177,7 +180,7 @@ class Net(object):
                 loss.backward()
                 eg_optimizer.step()
 
-                print("Loss is: " + str(loss.item()))
+                print("[%d.%d] Loss is: %f" % (epoch, i, loss.item()))
 
 
     def to(self, device):
@@ -256,7 +259,7 @@ def sort_to_classes(root, print_cycle=np.inf):
     log('Finished labeling process.')
 
 def get_utkface_dataset(root):
-    ret = lambda: torchvision.datasets.ImageFolder(os.path.join(root, 'labeled'), transform=transforms.Compose([
+    ret = lambda: ImageFolder(os.path.join(root, 'labeled'), transform=transforms.Compose([
         transforms.Resize(size=(128, 128)),
         transforms.ToTensor()
     ]))
@@ -269,7 +272,7 @@ def get_utkface_dataset(root):
 
 train_dataset = get_utkface_dataset(os.path.join('.', 'data', 'UTKFace'))
 batch_size = 100
-train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
 
 
 # Turn image into a batch of size 1, 128x128, RGB
