@@ -1,18 +1,22 @@
 import itertools
 import re
 import os
+import sys
 from shutil import copyfile
 import numpy as np
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
+import datetime
+import random
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
+from torch.optim import Adam
 import torchvision
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
-from torch.utils.data import DataLoader
-from torch.optim import Adam
 # from torch.nn.functional import relu
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 NUM_OF_MOCK_IMGS = np.random.randint(2, 16)
 IMAGE_DIMS = torch.Tensor([NUM_OF_MOCK_IMGS, 3, 128, 128])
@@ -20,29 +24,28 @@ MOCK_IMAGE = torch.rand(tuple(IMAGE_DIMS))
 IMAGE_LENGTH = IMAGE_DIMS.data[2]
 IMAGE_DEPTH = IMAGE_DIMS.data[1]
 
-KERNEL_SIZE = 2
+KERNEL_SIZE = 5
 STRIDE_SIZE = 2
 
 NUM_ENCODER_CHANNELS = 64
 NUM_Z_CHANNELS = 50
 NUM_GEN_CHANNELS = 1024
 
-import random
 
 NUM_AGES = 10
 MOCK_AGES = -torch.ones(NUM_OF_MOCK_IMGS, NUM_AGES)
 NUM_GENDERS = 2
 MOCK_GENDERS = -torch.ones(NUM_OF_MOCK_IMGS, NUM_GENDERS)
+# MOCK_IMAGE.unsqueeze_(0)
+MOCK_IMAGE = MOCK_IMAGE.to(device)
+MOCK_AGES = MOCK_AGES.to(device)
+MOCK_GENDERS = MOCK_GENDERS.to(device)
+
 for i in range(NUM_OF_MOCK_IMGS):
     MOCK_GENDERS[i][random.getrandbits(1)] *= -1  # random hot gender
     MOCK_AGES[i][random.randint(0, NUM_AGES - 1)] *= -1  # random hot age
 
 MOCK_LABELS = torch.cat((MOCK_AGES, MOCK_GENDERS), 1)
-
-image_value_range = (-1, 1)
-num_categories = 10
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Encoder(nn.Module):
     def __init__(self):
@@ -58,7 +61,8 @@ class Encoder(nn.Module):
                         in_channels=(NUM_ENCODER_CHANNELS * 2**(i-2)) if i > 1 else int(IMAGE_DEPTH),
                         out_channels=NUM_ENCODER_CHANNELS * 2**(i-1),
                         kernel_size=KERNEL_SIZE,
-                        stride=STRIDE_SIZE
+                        stride=STRIDE_SIZE,
+                        padding=2
                     ),
                     nn.ReLU()
             ]))
@@ -68,7 +72,7 @@ class Encoder(nn.Module):
                 in_features=NUM_ENCODER_CHANNELS * int(IMAGE_LENGTH**2) // int(2**(num_conv_layers+1)),
                 out_features=NUM_Z_CHANNELS
             )),
-            ('tanh_1', nn.Tanh())
+            ('tanh_1', nn.Tanh())  # normalize to [-1, 1] range
         ]))
 
     def forward(self, face):
@@ -84,7 +88,7 @@ class DiscriminatorZ(nn.Module):
         super(DiscriminatorZ, self).__init__()
         dims = (NUM_Z_CHANNELS, NUM_ENCODER_CHANNELS, NUM_ENCODER_CHANNELS // 2, NUM_ENCODER_CHANNELS // 4)
         self.layers = nn.ModuleList()
-
+        i = 0
         for i, (in_dim, out_dim) in enumerate(zip(dims[:-1], dims[1:]), 1):
             self.layers.add_module('dz_fc_%d' % i, nn.Sequential(
                 nn.Linear(in_dim, out_dim),
@@ -109,7 +113,7 @@ class DiscriminatorZ(nn.Module):
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
-        num_deconv_layers = int(torch.log2(IMAGE_LENGTH)) - int(KERNEL_SIZE / 2) -1  # TODO
+        num_deconv_layers = int(torch.log2(IMAGE_LENGTH)) - int(KERNEL_SIZE / 2) + 2 # TODO
         mini_size = 8
         self.fc = nn.Sequential(
             nn.Linear(NUM_Z_CHANNELS + NUM_AGES + NUM_GENDERS, NUM_GEN_CHANNELS * mini_size**2),
@@ -122,20 +126,33 @@ class Generator(nn.Module):
         for i in range(1, num_deconv_layers + 1):
             self.deconv_layers.add_module('g_deconv_%d' % i, nn.Sequential(*[
                 nn.ConvTranspose2d(
-                    in_channels=int(NUM_GEN_CHANNELS // (2 ** (i - 1))),
-                    out_channels=int(NUM_GEN_CHANNELS // (2 ** (i - 0))) if i < num_deconv_layers else int(IMAGE_DEPTH),
-                    kernel_size=KERNEL_SIZE if i < num_deconv_layers else 1,
-                    stride=STRIDE_SIZE if i < num_deconv_layers else 1
+                    in_channels=int(NUM_GEN_CHANNELS // (2 ** (i + -1))),
+                    out_channels=int(NUM_GEN_CHANNELS // (2 ** (i + 0))) if (i < num_deconv_layers) else 3,
+                    kernel_size=KERNEL_SIZE,
+                    stride=STRIDE_SIZE if i <= (num_deconv_layers - 2) else 1,
+                    output_padding=1 if i <= (num_deconv_layers - 2) else 0,
+                    padding=2 if i != num_deconv_layers - 1 else 66
                 ),
-                nn.ReLU()
+                nn.ReLU() if (i < num_deconv_layers) else nn.Tanh()
             ]))
 
-    def forward(self, z, age=None, gender=None):
-        z_l = z if (age is None and gender is None) else torch.cat((z, age, gender), 1)
-        out = self.fc(z_l)
+    def forward(self, z, age=None, gender=None, debug=False, debug_fc=False, debug_deconv=[]):
+        out = z
+        if age is not None and gender is not None:
+            label = Label(age, gender).to_tensor()\
+                if (isinstance(age, int) and isinstance(gender, int))\
+                else torch.cat((age, gender), 1)
+            out = torch.cat((out, label), 1)  # z_l
+        if (not debug) or (debug and debug_fc):
+            out = self.fc(z)
+            if debug:
+                print("G FC output size: " + str(out.size()))
         out = out.view(out.size(0), 1024, 8, 8)  # TODO - replace hardcoded
-        for deconv_layer in self.deconv_layers:
-            out = deconv_layer(out)
+        for i, deconv_layer in enumerate(self.deconv_layers, 1):
+            if (not debug) or (debug and (i in debug_deconv)):
+                out = deconv_layer(out)
+                if debug:
+                    print("G CONV {} output size: {}".format(i, out.size()))
 
         return out
 
@@ -155,20 +172,18 @@ class Net(object):
     def __repr__(self):
         return os.linesep.join([repr(subnet) for subnet in self.subnets])
 
-    def train(self, utkface_path, batch_size=50, epochs=1, learning_rate=1e-3):
+    def train(self, utkface_path, batch_size=50, epochs=1, weight_decay=0.0, lr=1e-4, size_average=False):
         train_dataset = get_utkface_dataset(utkface_path)
         train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
         idx_to_class = {v: k for k, v in train_dataset.class_to_idx.items()}
-        eg_optimizer = Adam(list(self.E.parameters()) + list(self.G.parameters()), weight_decay=1.0)
-        criterion = nn.MSELoss()  # L2 loss
+        eg_optimizer = Adam(list(self.E.parameters()) + list(self.G.parameters()), weight_decay=weight_decay, lr=lr)
+        criterion = nn.MSELoss(size_average=size_average)  # L2 loss
 
-
-        for epoch in range(epochs):
-            for i, (images, labels) in enumerate(train_loader):
+        for epoch in range(1, epochs + 1):
+            for i, (images, labels) in enumerate(train_loader, 1):
                 images = images.to(device=device)
                 labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=device) for l in list(labels.numpy())])
                 labels = labels.to(device=device)
-
 
                 z = self.E(images)
                 z_l = torch.cat((z, labels), 1)
@@ -179,13 +194,21 @@ class Net(object):
                 eg_optimizer.zero_grad()
                 loss.backward()
                 eg_optimizer.step()
-
-                print("[%d.%d] Loss is: %f" % (epoch, i, loss.item()))
-
+                now = datetime.datetime.now()
+                print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, Batch {i:d}] Loss: {loss.item():f}")
 
     def to(self, device):
         for subnet in self.subnets:
             subnet.to(device=device)
+
+    def cpu(self):
+        for subnet in self.subnets:
+            subnet.cpu()
+
+    def cuda(self):
+        for subnet in self.subnets:
+            subnet.cuda()
+
 
 
 utkface_original_image_format = re.compile('^(\d+)_(\d+)_\d+_(\d+)\.jpg\.chip\.jpg$')
@@ -193,7 +216,6 @@ utkface_original_image_format = re.compile('^(\d+)_(\d+)_\d+_(\d+)\.jpg\.chip\.j
 MALE = 0
 FEMALE = 1
 
-from collections import namedtuple
 
 def str_to_tensor(text):
     age_group, gender = text.split('.')
@@ -258,10 +280,12 @@ def sort_to_classes(root, print_cycle=np.inf):
             log('Copied %d files.' % copied_count)
     log('Finished labeling process.')
 
+
 def get_utkface_dataset(root):
     ret = lambda: ImageFolder(os.path.join(root, 'labeled'), transform=transforms.Compose([
         transforms.Resize(size=(128, 128)),
-        transforms.ToTensor()
+        transforms.ToTensor(),
+        lambda x: 2 * (x - 0.5)
     ]))
     try:
         return ret()
@@ -270,23 +294,16 @@ def get_utkface_dataset(root):
         return ret()
 
 
-train_dataset = get_utkface_dataset(os.path.join('.', 'data', 'UTKFace'))
-batch_size = 100
-train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+if 'net' not in globals():  # for interactive execution in PyCharm
+    net = Net()
+    net.to(device=device)
 
+    print(device)
 
-# Turn image into a batch of size 1, 128x128, RGB
-# MOCK_IMAGE.unsqueeze_(0)
-MOCK_IMAGE = MOCK_IMAGE.to(device)
-MOCK_AGES = MOCK_AGES.to(device)
-MOCK_GENDERS = MOCK_GENDERS.to(device)
+    MOCK_TEST = False
+    if MOCK_TEST:
+        z_mock = net.E(MOCK_IMAGE)
+        dz_mock = net.Dz(z_mocl)
+        output_mock = net.G(z_mock, MOCK_AGES, MOCK_GENDERS)
+        print(output_mock.size())
 
-net = Net()
-net.to(device=device)
-
-z = net.E(MOCK_IMAGE)
-dz = net.Dz(z)
-output = net.G(z, MOCK_AGES, MOCK_GENDERS)
-
-print(output.size())
-print(device)
