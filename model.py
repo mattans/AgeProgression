@@ -20,7 +20,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 NUM_OF_MOCK_IMGS = np.random.randint(2, 16)
 IMAGE_DIMS = torch.Tensor([NUM_OF_MOCK_IMGS, 3, 128, 128])
-MOCK_IMAGE = torch.rand(tuple(IMAGE_DIMS))
+MOCK_IMAGES = torch.rand(tuple(IMAGE_DIMS))
 IMAGE_LENGTH = IMAGE_DIMS.data[2]
 IMAGE_DEPTH = IMAGE_DIMS.data[1]
 
@@ -36,8 +36,7 @@ NUM_AGES = 10
 MOCK_AGES = -torch.ones(NUM_OF_MOCK_IMGS, NUM_AGES)
 NUM_GENDERS = 2
 MOCK_GENDERS = -torch.ones(NUM_OF_MOCK_IMGS, NUM_GENDERS)
-# MOCK_IMAGE.unsqueeze_(0)
-MOCK_IMAGE = MOCK_IMAGE.to(device)
+MOCK_IMAGES = MOCK_IMAGES.to(device)
 MOCK_AGES = MOCK_AGES.to(device)
 MOCK_GENDERS = MOCK_GENDERS.to(device)
 
@@ -46,6 +45,13 @@ for i in range(NUM_OF_MOCK_IMGS):
     MOCK_AGES[i][random.randint(0, NUM_AGES - 1)] *= -1  # random hot age
 
 MOCK_LABELS = torch.cat((MOCK_AGES, MOCK_GENDERS), 1)
+
+def two_sided(x):
+    return 2 * (x - 0.5)
+
+
+def one_sided(x):
+    return (x + 1) / 2
 
 class Encoder(nn.Module):
     def __init__(self):
@@ -56,9 +62,10 @@ class Encoder(nn.Module):
         self.conv_layers = nn.ModuleList()
 
         for i in range(1, num_conv_layers + 1):
+            not_input_layer = i > 1
             self.conv_layers.add_module('e_conv_%d' % i, nn.Sequential(*[
                     nn.Conv2d(
-                        in_channels=(NUM_ENCODER_CHANNELS * 2**(i-2)) if i > 1 else int(IMAGE_DEPTH),
+                        in_channels=(NUM_ENCODER_CHANNELS * 2**(i-2)) if not_input_layer else int(IMAGE_DEPTH),
                         out_channels=NUM_ENCODER_CHANNELS * 2**(i-1),
                         kernel_size=KERNEL_SIZE,
                         stride=STRIDE_SIZE,
@@ -75,11 +82,15 @@ class Encoder(nn.Module):
             ('tanh_1', nn.Tanh())  # normalize to [-1, 1] range
         ]))
 
+    def _compress(self, x):
+        return x.view(x.size(0), -1)
+
     def forward(self, face):
         out = face
         for conv_layer in self.conv_layers:
             out = conv_layer(out)
-        out = self.fc_layer(out.view(out.size(0), -1))  # flatten tensor (reshape)
+        out = self._compress(out)
+        out = self.fc_layer(out)  # flatten tensor (reshape)
         return out
 
 
@@ -113,7 +124,7 @@ class DiscriminatorZ(nn.Module):
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
-        num_deconv_layers = int(torch.log2(IMAGE_LENGTH)) - int(KERNEL_SIZE / 2) + 2 # TODO
+        num_deconv_layers = int(torch.log2(IMAGE_LENGTH)) - int(KERNEL_SIZE / 2) # TODO
         mini_size = 8
         self.fc = nn.Sequential(
             nn.Linear(NUM_Z_CHANNELS + NUM_AGES + NUM_GENDERS, NUM_GEN_CHANNELS * mini_size**2),
@@ -124,17 +135,21 @@ class Generator(nn.Module):
         self.deconv_layers = nn.ModuleList()
 
         for i in range(1, num_deconv_layers + 1):
+            not_output_layer = i < num_deconv_layers
             self.deconv_layers.add_module('g_deconv_%d' % i, nn.Sequential(*[
                 nn.ConvTranspose2d(
-                    in_channels=int(NUM_GEN_CHANNELS // (2 ** (i + -1))),
-                    out_channels=int(NUM_GEN_CHANNELS // (2 ** (i + 0))) if (i < num_deconv_layers) else 3,
-                    kernel_size=KERNEL_SIZE,
-                    stride=STRIDE_SIZE if i <= (num_deconv_layers - 2) else 1,
-                    output_padding=1 if i <= (num_deconv_layers - 2) else 0,
-                    padding=2 if i != num_deconv_layers - 1 else 66
+                    in_channels=int(NUM_GEN_CHANNELS // (2 ** (i - 1))),
+                    out_channels=int(NUM_GEN_CHANNELS // (2 ** i)) if not_output_layer else 3,
+                    kernel_size=KERNEL_SIZE if not_output_layer else 1,
+                    stride=STRIDE_SIZE if not_output_layer else 1,
+                    padding=2 if not_output_layer else 0,
+                    output_padding=1 if not_output_layer else 0
                 ),
-                nn.ReLU() if (i < num_deconv_layers) else nn.Tanh()
+                nn.ReLU() if not_output_layer else nn.Tanh()
             ]))
+
+    def _uncompress(self, x):
+        return x.view(x.size(0), 1024, 8, 8)  # TODO - replace hardcoded
 
     def forward(self, z, age=None, gender=None, debug=False, debug_fc=False, debug_deconv=[]):
         out = z
@@ -147,7 +162,7 @@ class Generator(nn.Module):
             out = self.fc(z)
             if debug:
                 print("G FC output size: " + str(out.size()))
-        out = out.view(out.size(0), 1024, 8, 8)  # TODO - replace hardcoded
+        out = self._uncompress(out)
         for i, deconv_layer in enumerate(self.deconv_layers, 1):
             if (not debug) or (debug and (i in debug_deconv)):
                 out = deconv_layer(out)
@@ -179,7 +194,9 @@ class Net(object):
         eg_optimizer = Adam(list(self.E.parameters()) + list(self.G.parameters()), weight_decay=weight_decay, lr=lr)
         criterion = nn.MSELoss(size_average=size_average)  # L2 loss
 
+        epoch_losses = []
         for epoch in range(1, epochs + 1):
+            epoch_loss = 0
             for i, (images, labels) in enumerate(train_loader, 1):
                 images = images.to(device=device)
                 labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=device) for l in list(labels.numpy())])
@@ -194,8 +211,10 @@ class Net(object):
                 eg_optimizer.zero_grad()
                 loss.backward()
                 eg_optimizer.step()
-                now = datetime.datetime.now()
                 print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, Batch {i:d}] Loss: {loss.item():f}")
+                epoch_loss += loss.item()
+            epoch_losses += [epoch_loss / i]
+
 
     def to(self, device):
         for subnet in self.subnets:
@@ -285,7 +304,7 @@ def get_utkface_dataset(root):
     ret = lambda: ImageFolder(os.path.join(root, 'labeled'), transform=transforms.Compose([
         transforms.Resize(size=(128, 128)),
         transforms.ToTensor(),
-        lambda x: 2 * (x - 0.5)
+        two_sided  # [0:1] -> [-1:1]
     ]))
     try:
         return ret()
