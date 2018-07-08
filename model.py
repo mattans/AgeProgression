@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim import Adam
+import datetime
 
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
@@ -102,10 +103,8 @@ class Generator(nn.Module):
                 nn.ConvTranspose2d(
                     in_channels=int(consts.NUM_GEN_CHANNELS // (2 ** (i - 1))),
                     out_channels=int(consts.NUM_GEN_CHANNELS // (2 ** i)) if not_output_layer else 3,
-                    kernel_size=consts.KERNEL_SIZE if not_output_layer else 1,
-                    stride=consts.STRIDE_SIZE if not_output_layer else 1,
-                    padding=2 if not_output_layer else 0,
-                    output_padding=1 if not_output_layer else 0
+                    kernel_size=2 if not_output_layer else 1,
+                    stride=2 if not_output_layer else 1,
                 ),
                 nn.ReLU() if not_output_layer else nn.Tanh()
             ]))
@@ -122,9 +121,9 @@ class Generator(nn.Module):
             out = torch.cat((out, label), 1)  # z_l
         if (not debug) or (debug and debug_fc):
             out = self.fc(z)
+            out = self._uncompress(out)
             if debug:
                 print("G FC output size: " + str(out.size()))
-        out = self._uncompress(out)
         for i, deconv_layer in enumerate(self.deconv_layers, 1):
             if (not debug) or (debug and (i in debug_deconv)):
                 out = deconv_layer(out)
@@ -154,7 +153,7 @@ class Net(object):
         train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
         idx_to_class = {v: k for k, v in train_dataset.class_to_idx.items()}
         eg_optimizer = Adam(list(self.E.parameters()) + list(self.G.parameters()), weight_decay=weight_decay, lr=lr)
-        criterion = nn.MSELoss(size_average=size_average)  # L2 loss
+        criterion = nn.L1Loss(size_average=size_average)  # L2 loss
 
         epoch_losses = []
         for epoch in range(1, epochs + 1):
@@ -173,6 +172,9 @@ class Net(object):
                 eg_optimizer.zero_grad()
                 loss.backward()
                 eg_optimizer.step()
+
+                now = datetime.datetime.now()
+
                 print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, Batch {i:d}] Loss: {loss.item():f}")
                 epoch_loss += loss.item()
             epoch_losses += [epoch_loss / i]
