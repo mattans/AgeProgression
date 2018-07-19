@@ -9,6 +9,19 @@ import torch
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
 
+def merge(images, size):
+    h, w = images.shape[2], images.shape[3]
+    img = np.zeros((3, h * size[0], w * size[1]))
+
+    for idx, image in enumerate(images):
+        i = idx % size[1]
+        j = int(idx / size[1])
+        img[0][j * h:j * h + h, i * w:i * w + w] = image[0]
+        img[1][j * h:j * h + h, i * w:i * w + w] = image[1]
+        img[2][j * h:j * h + h, i * w:i * w + w] = image[2]
+
+    return img
+
 def get_utkface_dataset(root):
     ret = lambda: ImageFolder(os.path.join(root, 'labeled'), transform=transforms.Compose([
         transforms.Resize(size=(128, 128)),

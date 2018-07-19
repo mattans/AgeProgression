@@ -1,18 +1,18 @@
 import consts
-import utils
+from utils import *
 import os
 from shutil import copyfile
 import numpy as np
 from collections import OrderedDict, namedtuple
-
-
+from torchvision.utils import save_image
+from torchvision import datasets
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 import datetime
-
-import torchvision.transforms as transforms
+from scipy.misc import imsave as ims
+import torchvision
 from torchvision.datasets import ImageFolder
 # from torch.nn.functional import relu
 
@@ -115,7 +115,7 @@ class Generator(nn.Module):
     def forward(self, z, age=None, gender=None, debug=False, debug_fc=False, debug_deconv=[]):
         out = z
         if age is not None and gender is not None:
-            label = utils.Label(age, gender).to_tensor()\
+            label = Label(age, gender).to_tensor()\
                 if (isinstance(age, int) and isinstance(gender, int))\
                 else torch.cat((age, gender), 1)
             out = torch.cat((out, label), 1)  # z_l
@@ -148,19 +148,39 @@ class Net(object):
     def __repr__(self):
         return os.linesep.join([repr(subnet) for subnet in self.subnets])
 
-    def train(self, utkface_path, batch_size=50, epochs=1, weight_decay=0.0, lr=1e-4, size_average=False):
-        train_dataset = utils.get_utkface_dataset(utkface_path)
+    def train(self, utkface_path, batch_size=50, epochs=1, weight_decay=0.0, lr=1e-3, size_average=False):
+        print("DEBUG: starting train")
+        train_dataset = get_utkface_dataset(utkface_path)
         train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
         idx_to_class = {v: k for k, v in train_dataset.class_to_idx.items()}
-        eg_optimizer = Adam(list(self.E.parameters()) + list(self.G.parameters()), weight_decay=weight_decay, lr=lr)
+        eg_optimizer = Adam(list(self.E.parameters()) + list(self.G.parameters()), weight_decay=0.5, lr=lr)
         criterion = nn.L1Loss(size_average=size_average)  # L2 loss
 
+        test_loader = DataLoader(get_utkface_dataset(utkface_path), batch_size=batch_size, shuffle=True)
+        test_images = None
+        test_labels = None
+        for i, (images, labels) in enumerate(test_loader):
+            #data = images.to(consts.device)
+            #recon_batch, mu, logvar = model(data)
+            test_images = images.to(device=consts.device)
+            test_labels = torch.stack(
+                [str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
+            test_labels = test_labels.to(device=consts.device)
+            # if i == 0:
+            #             #     n = min(data.size(0), 8)
+            #             #     comparison = torch.cat([data[:n],
+            #             #                             recon_batch.view(batch_size, 1, 28, 28)[:n]])
+            #             #     save_image(data,
+            #             #                'results/base.png', nrow=n)
+            break
+
+        torchvision.utils.save_image(test_images, "./results/base.png", nrow=8)
         epoch_losses = []
         for epoch in range(1, epochs + 1):
             epoch_loss = 0
             for i, (images, labels) in enumerate(train_loader, 1):
                 images = images.to(device=consts.device)
-                labels = torch.stack([utils.str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
+                labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
                 labels = labels.to(device=consts.device)
 
                 z = self.E(images)
@@ -174,10 +194,23 @@ class Net(object):
                 eg_optimizer.step()
 
                 now = datetime.datetime.now()
-
-                print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, Batch {i:d}] Loss: {loss.item():f}")
+                print(f"TRAIN: [{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, Loss: {loss.item():f}")
                 epoch_loss += loss.item()
+                # break
+            if (True):
+                #####test#####
+                print("DEBUG: ##############test###############")
+                z = self.E(test_images)
+                z_l = torch.cat((z, test_labels), 1)
+                generated = self.G(z_l)
+                test_loss = criterion(generated, test_images)
+                now = datetime.datetime.now()
+                print(f"TEST: [{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, Loss: {test_loss.item():f}")
+                torchvision.utils.save_image(generated, 'results/img_' + str(epoch) + '.png', nrow=8)
+                # save_image(generated.view(batch_size, 3, 128, 128),
+                #            'results/img_b_' + str(epoch) + '.png')
             epoch_losses += [epoch_loss / i]
+
 
 
     def to(self, device):
