@@ -26,7 +26,7 @@ def get_utkface_dataset(root):
     ret = lambda: ImageFolder(os.path.join(root, 'labeled'), transform=transforms.Compose([
         transforms.Resize(size=(128, 128)),
         transforms.ToTensor(),
-        two_sided  # [0:1] -> [-1:1]
+        transforms.Lambda(lambda x: 2 * x - 1)  # [0:1] -> [-1:1]
     ]))
     try:
         return ret()
