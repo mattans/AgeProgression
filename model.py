@@ -194,15 +194,16 @@ class Net(object):
                 eg_optimizer.step()
 
                 now = datetime.datetime.now()
-                print(f"TRAIN: [{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, Loss: {loss.item():f}")
+
+                print(f"TRAIN:[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, Batch {i:d}] Loss: {loss.item():f}")
                 epoch_loss += loss.item()
                 # break
             if (True):
                 #####test#####
                 print("DEBUG: ##############test###############")
                 z = self.E(test_images)
-                z_l = torch.cat((z, test_labels), 1)
-                generated = self.G(z_l)
+                #z_l = torch.cat((z, test_labels), 1)
+                generated = self.G(z)
                 test_loss = criterion(generated, test_images)
                 now = datetime.datetime.now()
                 print(f"TEST: [{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, Loss: {test_loss.item():f}")

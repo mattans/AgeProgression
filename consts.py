@@ -3,7 +3,7 @@ import numpy as np
 import random
 import re
 IMAGE_PATH = "./data/UTKFace"
-EPOCHS = 4
+EPOCHS = 100
 NUM_OF_MOCK_IMGS = np.random.randint(2, 16)
 IMAGE_DIMS = torch.Tensor([NUM_OF_MOCK_IMGS, 3, 128, 128])
 MOCK_IMAGES = torch.rand(tuple(IMAGE_DIMS))
