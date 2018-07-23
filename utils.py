@@ -8,6 +8,7 @@ from collections import namedtuple
 import torch
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
+import datetime
 
 def merge(images, size):
     h, w = images.shape[2], images.shape[3]
@@ -26,7 +27,7 @@ def get_utkface_dataset(root):
     ret = lambda: ImageFolder(os.path.join(root, 'labeled'), transform=transforms.Compose([
         transforms.Resize(size=(128, 128)),
         transforms.ToTensor(),
-        two_sided  # [0:1] -> [-1:1]
+        transforms.Lambda(lambda x: 2 * x - 1)  # [0:1] -> [-1:1]
     ]))
     try:
         return ret()
@@ -104,3 +105,14 @@ def two_sided(x):
 
 def one_sided(x):
     return (x + 1) / 2
+
+
+def optimizer_and_criterion(criter_class, optim_class, *modules, **optim_args):
+    params = []
+    for module in modules:
+        params.extend(list(module.parameters()))
+    optimizier = optim_class(params=params, **optim_args)
+    return optimizier, criter_class(size_average=True)
+
+def default_results_dir():
+    return os.path.join('.', 'trained_models', datetime.datetime.now().strftime("%Y_%m_%d___%H_%M_%S"))
