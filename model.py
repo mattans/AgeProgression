@@ -240,8 +240,6 @@ class Net(object):
                         torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
                 ) / batch_size  # TO DO - ADD TOTAL VARIANCE LOSS
 
-
-
                 d_z = self.Dz(z)
 
                 eg_optimizer.zero_grad()
@@ -259,18 +257,18 @@ class Net(object):
                     joined_image = one_sided(torch.cat((images, generated), 0))
                     save_image(joined_image, os.path.join(cp_path, 'reconstruct.png'))
 
-            for ii, (images, labels) in enumerate(valid_loader, 1):
-                images = images.to(device=consts.device)
-                labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
-                labels = labels.to(device=consts.device)
+            with torch.no_grad():  # validation
+                for ii, (images, labels) in enumerate(valid_loader, 1):
+                    images = images.to(device=consts.device)
+                    labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
+                    labels = labels.to(device=consts.device)
 
-                z = self.E(images)
-                z_l = torch.cat((z, labels), 1)
-                generated = self.G(z_l)
-                loss = nn.functional.l1_loss(images, generated)
-                eg_optimizer.zero_grad()
+                    z = self.E(images)
+                    z_l = torch.cat((z, labels), 1)
+                    generated = self.G(z_l)
+                    loss = nn.functional.l1_loss(images, generated)
 
-                epoch_loss_valid += loss.item()
+                    epoch_loss_valid += loss.item()
 
             epoch_losses.append(epoch_loss / i)
             epoch_losses_valid.append(epoch_loss_valid / ii)
