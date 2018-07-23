@@ -274,7 +274,7 @@ class Net(object):
 
             epoch_losses.append(epoch_loss / i)
             epoch_losses_valid.append(epoch_loss_valid / ii)
-            print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {epoch_losses[-1]:d} Validation Loss: {epoch_losses_valid[-1]:f}")
+            print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {epoch_losses[-1]:f} Validation Loss: {epoch_losses_valid[-1]:f}")
 
     def to(self, device):
         for subnet in self.subnets:
