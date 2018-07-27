@@ -114,5 +114,43 @@ def optimizer_and_criterion(criter_class, optim_class, *modules, **optim_args):
     optimizier = optim_class(params=params, **optim_args)
     return optimizier, criter_class(size_average=True)
 
+
 def default_results_dir():
     return os.path.join('.', 'trained_models', datetime.datetime.now().strftime("%Y_%m_%d___%H_%M_%S"))
+
+
+class LossTracker(object):
+    def __init__(self, use_heuristics=False, eps=1e-3):
+        self.train_losses = []
+        self.valid_losses = []
+        self.paths = []
+        self.epochs = 0
+        self.use_heuristics = use_heuristics
+        self.eps = abs(eps)
+
+    def append(self, train_loss, valid_loss, path):
+        self.train_losses.append(train_loss)
+        self.valid_losses.append(valid_loss)
+        self.paths.append(path)
+        self.epochs += 1
+        if self.use_heuristics and self.epochs >= 2:
+            delta_train = self.train_losses[-1] - self.train_losses[-2]
+            delta_valid = self.valid_losses[-1] - self.valid_losses[-2]
+            if delta_train < -self.eps and delta_valid < -self.eps:
+                pass  # good fit, continue training
+            elif delta_train < -self.eps and delta_valid > +self.eps:
+                pass  # overfit, consider stop the training now
+            elif delta_train > +self.eps and delta_valid > +self.eps:
+                pass  # underfit, if this is in an advanced epoch, break
+            elif delta_train > +self.eps and delta_valid < -self.eps:
+                pass  # unknown fit, check your model, optimizers and loss functions
+            elif 0 < delta_train < +self.eps and self.epochs >= 3:
+                prev_delta_train = self.train_losses[-2] - self.train_losses[-3]
+                if 0 < prev_delta_train < +self.eps:
+                    pass  # our training loss is increasing but in less than eps,
+                    # this is a drift that needs to be caught, consider lower eps next time
+            else:
+                pass  # saturation \ small fluctuations
+
+    def plot(self):
+        raise NotImplementedError()

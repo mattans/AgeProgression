@@ -174,6 +174,7 @@ class Net(object):
         self.Dz = DiscriminatorZ()
         self.G = Generator()
         self.subnets = (self.E, self.Dz, self.G)
+        self.fitting_warning = False
 
     def __call__(self, x):
         z = self.E(x)
@@ -194,9 +195,6 @@ class Net(object):
             name=default_results_dir(),
             valid_size=0.01,
     ):
-
-        for subnet in self.subnets:
-            subnet.train()  # move to train mode
 
         train_dataset = get_utkface_dataset(utkface_path)
         valid_dataset = get_utkface_dataset(utkface_path)
@@ -222,10 +220,15 @@ class Net(object):
 
         epoch_losses = []
         epoch_losses_valid = []
+        loss_tracker = LossTracker()
         for epoch in range(1, epochs + 1):
             epoch_loss = 0
             epoch_loss_valid = 0
             for i, (images, labels) in enumerate(train_loader, 1):
+
+                for subnet in self.subnets:
+                    subnet.train()  # move to train mode
+
                 images = images.to(device=consts.device)
                 labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
                 labels = labels.to(device=consts.device)
@@ -247,7 +250,6 @@ class Net(object):
                 loss.backward(retain_graph=True)
                 eg_optimizer.step()
 
-
                 now = datetime.datetime.now()
 
                 epoch_loss += loss.item()
@@ -258,6 +260,10 @@ class Net(object):
                     save_image(joined_image, os.path.join(cp_path, 'reconstruct.png'))
 
             with torch.no_grad():  # validation
+
+                for subnet in self.subnets:
+                    subnet.eval()  # move to eval mode
+
                 for ii, (images, labels) in enumerate(valid_loader, 1):
                     images = images.to(device=consts.device)
                     labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
@@ -270,9 +276,9 @@ class Net(object):
 
                     epoch_loss_valid += loss.item()
 
-            epoch_losses.append(epoch_loss / i)
-            epoch_losses_valid.append(epoch_loss_valid / ii)
+            loss_tracker.append(epoch_loss / i, epoch_loss_valid / ii, cp_path)
             print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {epoch_losses[-1]:f} Validation Loss: {epoch_losses_valid[-1]:f}")
+
 
     def to(self, device):
         for subnet in self.subnets:
