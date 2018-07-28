@@ -263,11 +263,13 @@ class Net(object):
                 now = datetime.datetime.now()
 
                 epoch_loss += loss.item()
-                logging.info('[{h}:{m}[Epoch {e}] i: {c} Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, c=i,
-                                                                           t=loss.item()))
-
-                print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
-
+                if i % 100 == 0:
+                    logging.info('[{h}:{m}[Epoch {e}, i: {c}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, c=i,
+                                                                                t=loss.item()))
+                    print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
+                    cp_path = self.save(name)
+                    # joined_image = one_sided(torch.cat((images, generated), 0))
+                    # save_image(joined_image, os.path.join(cp_path, 'reconstruct.png'))
 
             with torch.no_grad():  # validation
 
