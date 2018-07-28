@@ -14,6 +14,7 @@ import datetime
 from scipy.misc import imsave as ims
 import torchvision
 from torchvision.datasets import ImageFolder
+import logging
 # from torch.nn.functional import relu
 from torch.utils.data.sampler import SubsetRandomSampler
 
@@ -193,14 +194,15 @@ class Net(object):
             learning_rate=2e-4,
             betas=(0.9, 0.999),
             name=default_results_dir(),
-            valid_size=0.01,
+            valid_size=consts.BATCH_SIZE,
     ):
 
         train_dataset = get_utkface_dataset(utkface_path)
         valid_dataset = get_utkface_dataset(utkface_path)
         dset_size = len(train_dataset)
         indices = list(range(dset_size))
-        split = int(np.floor(valid_size * dset_size))
+        # split = int(np.floor(valid_size * dset_size))
+        split = int(np.floor(valid_size))
         # np.random.seed(random_seed)
         np.random.shuffle(indices)
         train_idx, valid_idx = indices[split:], indices[:split]
@@ -211,7 +213,14 @@ class Net(object):
         valid_loader = DataLoader(dataset=valid_dataset, batch_size=batch_size, sampler=valid_sampler)
         idx_to_class = {v: k for k, v in train_dataset.class_to_idx.items()}
 
-
+        validate_images = None
+        validate_labels = None
+        for ii, (images, labels) in enumerate(valid_loader, 1):
+            validate_images = images.to(device=consts.device)
+            labels = torch.stack(
+                [str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
+            validate_labels = labels.to(device=consts.device)
+        torchvision.utils.save_image(validate_images, "./results/base.png", nrow=8)
 
         eg_optimizer, eg_criterion = optimizer_and_criterion(nn.L1Loss, Adam, self.E, self.G, weight_decay=weight_decay, betas=betas, lr=learning_rate)
         z_optimizer, z_criterion = optimizer_and_criterion(nn.BCEWithLogitsLoss, Adam, self.Dz, weight_decay=weight_decay, betas=betas, lr=learning_rate)
@@ -230,7 +239,8 @@ class Net(object):
                     subnet.train()  # move to train mode
 
                 images = images.to(device=consts.device)
-                labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
+                labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device)
+                                      for l in list(labels.numpy())])
                 labels = labels.to(device=consts.device)
 
                 z = self.E(images)
@@ -253,31 +263,30 @@ class Net(object):
                 now = datetime.datetime.now()
 
                 epoch_loss += loss.item()
-                if i % 100 == 0:
-                    print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
-                    cp_path = self.save(name)
-                    joined_image = one_sided(torch.cat((images, generated), 0))
-                    save_image(joined_image, os.path.join(cp_path, 'reconstruct.png'))
+                logging.info('[{h}:{m}[Epoch {e}] i: {c} Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, c=i,
+                                                                           t=loss.item()))
+
+                print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
+
 
             with torch.no_grad():  # validation
 
                 for subnet in self.subnets:
                     subnet.eval()  # move to eval mode
 
-                for ii, (images, labels) in enumerate(valid_loader, 1):
-                    images = images.to(device=consts.device)
-                    labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
-                    labels = labels.to(device=consts.device)
-
-                    z = self.E(images)
-                    z_l = torch.cat((z, labels), 1)
-                    generated = self.G(z_l)
-                    loss = nn.functional.l1_loss(images, generated)
-
-                    epoch_loss_valid += loss.item()
+                z = self.E(validate_images)
+                z_l = torch.cat((z, validate_labels), 1)
+                generated = self.G(z_l)
+                loss = nn.functional.l1_loss(validate_images, generated)
+                torchvision.utils.save_image(generated, 'results/img_' + str(epoch) + '.png', nrow=8)
+                epoch_loss_valid += loss.item()
 
             loss_tracker.append(epoch_loss / i, epoch_loss_valid / ii, cp_path)
-            print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {epoch_losses[-1]:f} Validation Loss: {epoch_losses_valid[-1]:f}")
+            logging.info('[{h}:{m}[Epoch {e}] Train Loss: {t} Vlidation Loss: {v}'.format(h=now.hour, m=now.minute,
+                                                                                          e=epoch, t=epoch_losses[-1],
+                                                                                          v=epoch_losses_valid[-1]))
+            print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {epoch_losses[-1]:f} Validation Loss: "
+                  f"{epoch_losses_valid[-1]:f}")
 
 
     def to(self, device):
