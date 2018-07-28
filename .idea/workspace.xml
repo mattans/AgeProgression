@@ -3,6 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="31d1c1b0-0b8a-4da9-88d0-4b8c4084fac1" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -16,8 +17,8 @@
       <file leaf-file-name="main.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="143">
-              <caret line="48" column="11" lean-forward="true" selection-start-line="48" selection-start-column="11" selection-end-line="48" selection-end-column="11" />
+            <state relative-caret-position="93">
+              <caret line="23" column="21" selection-start-line="23" selection-start-column="21" selection-end-line="23" selection-end-column="21" />
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
               </folding>
@@ -37,8 +38,20 @@
       <file leaf-file-name="model.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/model.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="333">
-              <caret line="283" column="19" selection-start-line="283" selection-start-column="19" selection-end-line="283" selection-end-column="19" />
+            <state relative-caret-position="31">
+              <caret line="248" column="57" lean-forward="true" selection-start-line="248" selection-start-column="57" selection-end-line="248" selection-end-column="57" />
+              <folding>
+                <element signature="e#0#13#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="utils.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/utils.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="61">
+              <caret line="158" column="22" selection-start-line="158" selection-start-column="4" selection-end-line="158" selection-end-column="22" />
               <folding>
                 <element signature="e#0#13#0" expanded="true" />
               </folding>
@@ -49,8 +62,17 @@
       <file leaf-file-name="module.py" pinned="false" current-in-tab="false">
         <entry file="file://$USER_HOME$/Anaconda3/Lib/site-packages/torch/nn/modules/module.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1477">
-              <caret line="268" lean-forward="true" selection-start-line="268" selection-end-line="268" />
+            <state relative-caret-position="124">
+              <caret line="490" selection-start-line="490" selection-end-line="490" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="dataloader.py" pinned="false" current-in-tab="false">
+        <entry file="file://$USER_HOME$/Anaconda3/Lib/site-packages/torch/utils/data/dataloader.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="-495">
+              <caret line="399" column="8" selection-start-line="399" selection-start-column="8" selection-end-line="399" selection-end-column="8" />
             </state>
           </provider>
         </entry>
@@ -69,6 +91,11 @@
       </file>
     </leaf>
   </component>
+  <component name="FindInProjectRecents">
+    <findStrings>
+      <find>eg_criterion</find>
+    </findStrings>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
@@ -76,6 +103,7 @@
     <option name="CHANGED_PATHS">
       <list>
         <option value="$PROJECT_DIR$/main.py" />
+        <option value="$PROJECT_DIR$/utils.py" />
         <option value="$PROJECT_DIR$/model.py" />
       </list>
     </option>
@@ -160,12 +188,11 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="1382" height="744" extended-state="6" />
-    <editor active="true" />
     <layout>
       <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.24963397" />
       <window_info anchor="bottom" id="TODO" order="6" />
       <window_info anchor="bottom" id="Event Log" side_tool="true" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.3290938" />
+      <window_info anchor="bottom" id="Run" order="2" weight="0.3290938" />
       <window_info anchor="bottom" id="Version Control" />
       <window_info anchor="bottom" id="Python Console" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
@@ -199,16 +226,16 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/model.py</url>
-          <line>268</line>
-          <option name="timeStamp" value="3" />
+          <line>257</line>
+          <option name="timeStamp" value="5" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/model.py</url>
-          <line>265</line>
-          <option name="timeStamp" value="4" />
+          <line>241</line>
+          <option name="timeStamp" value="6" />
         </line-breakpoint>
       </breakpoints>
-      <option name="time" value="5" />
+      <option name="time" value="7" />
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
@@ -231,15 +258,32 @@
     </entry>
     <entry file="file://$USER_HOME$/Anaconda3/Lib/site-packages/torch/nn/modules/module.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1477">
-          <caret line="268" lean-forward="true" selection-start-line="268" selection-end-line="268" />
+        <state relative-caret-position="124">
+          <caret line="490" selection-start-line="490" selection-end-line="490" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="61">
+          <caret line="158" column="22" selection-start-line="158" selection-start-column="4" selection-end-line="158" selection-end-column="22" />
+          <folding>
+            <element signature="e#0#13#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/Anaconda3/Lib/site-packages/torch/utils/data/dataloader.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-495">
+          <caret line="399" column="8" selection-start-line="399" selection-start-column="8" selection-end-line="399" selection-end-column="8" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/main.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="143">
-          <caret line="48" column="11" lean-forward="true" selection-start-line="48" selection-start-column="11" selection-end-line="48" selection-end-column="11" />
+        <state relative-caret-position="93">
+          <caret line="23" column="21" selection-start-line="23" selection-start-column="21" selection-end-line="23" selection-end-column="21" />
           <folding>
             <element signature="e#0#12#0" expanded="true" />
           </folding>
@@ -248,8 +292,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/model.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="333">
-          <caret line="283" column="19" selection-start-line="283" selection-start-column="19" selection-end-line="283" selection-end-column="19" />
+        <state relative-caret-position="31">
+          <caret line="248" column="57" lean-forward="true" selection-start-line="248" selection-start-column="57" selection-end-line="248" selection-end-column="57" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
           </folding>

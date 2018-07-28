@@ -253,13 +253,15 @@ class Net(object):
                         torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
                 ) / batch_size  # TO DO - ADD TOTAL VARIANCE LOSS
 
-                d_z = self.Dz(z)
-
+                d_z_prior = self.Dz(z)
+                d_z_after = self.Dz(self.E(generated))
+                dz_loss = z_criterion(d_z_prior, d_z_after)
                 eg_optimizer.zero_grad()
-                loss = eg_loss + reg_loss
+                z_optimizer.zero_grad()
+                loss = eg_loss + reg_loss + dz_loss
                 loss.backward(retain_graph=True)
                 eg_optimizer.step()
-
+                z_optimizer.step()
                 now = datetime.datetime.now()
 
                 epoch_loss += loss.item()
