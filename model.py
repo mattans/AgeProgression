@@ -230,6 +230,7 @@ class Net(object):
         epoch_losses = []
         epoch_losses_valid = []
         loss_tracker = LossTracker()
+        d_z_prior = np.random.uniform(0.0, 100.0, consts.NUM_Z_CHANNELS)
         for epoch in range(1, epochs + 1):
             epoch_loss = 0
             epoch_loss_valid = 0
@@ -253,9 +254,8 @@ class Net(object):
                         torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
                 ) / batch_size  # TO DO - ADD TOTAL VARIANCE LOSS
 
-                d_z_prior = self.Dz(z)
-                d_z_after = self.Dz(self.E(generated))
-                dz_loss = z_criterion(d_z_prior, d_z_after)
+                d_z = self.Dz(z)
+                dz_loss = z_criterion(d_z_prior, d_z)
                 eg_optimizer.zero_grad()
                 z_optimizer.zero_grad()
                 loss = eg_loss + reg_loss + dz_loss
