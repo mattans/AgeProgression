@@ -230,7 +230,8 @@ class Net(object):
         epoch_losses = []
         epoch_losses_valid = []
         loss_tracker = LossTracker()
-        d_z_prior = np.random.uniform(0.0, 100.0, consts.NUM_Z_CHANNELS)
+        d_z_prior = 255 * torch.rand(batch_size, consts.NUM_Z_CHANNELS)
+        d_z_prior = self.Dz(d_z_prior)
         for epoch in range(1, epochs + 1):
             epoch_loss = 0
             epoch_loss_valid = 0
