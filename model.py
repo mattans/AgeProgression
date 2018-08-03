@@ -290,11 +290,20 @@ class Net(object):
                 epoch_loss_valid += loss.item()
 
             loss_tracker.append(epoch_loss / i, epoch_loss_valid / ii, cp_path)
-            logging.info('[{h}:{m}[Epoch {e}] Train Loss: {t} Vlidation Loss: {v}'.format(h=now.hour, m=now.minute,
-                                                                                          e=epoch, t=epoch_losses[-1],
-                                                                                          v=epoch_losses_valid[-1]))
-            print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {epoch_losses[-1]:f} Validation Loss: "
-                  f"{epoch_losses_valid[-1]:f}")
+            try:
+                logging.info('[{h}:{m}[Epoch {e}] Train Loss: {t} Vlidation Loss: {v}'.format(h=now.hour, m=now.minute,
+                                                                                              e=epoch, t=epoch_losses[-1],
+                                                                                              v=epoch_losses_valid[-1]))
+                print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {epoch_losses[-1]:f} Validation Loss: "
+                      f"{epoch_losses_valid[-1]:f}")
+            except IndexError as e:
+                logging.error('[{h}:{m}' + str(e))
+                logging.error('[{h}:{m} epoch_losses: ' + str(epoch_losses))
+                logging.error('[{h}:{m} epoch_losses_valid: ' + str(epoch_losses_valid))
+                print(e)
+                print("epoch_losses: " + str(epoch_losses))
+                print("epoch_losses_valid: " + str(epoch_losses_valid))
+
 
 
     def to(self, device):
