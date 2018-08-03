@@ -231,7 +231,7 @@ class Net(object):
         epoch_losses_valid = []
         loss_tracker = LossTracker()
         d_z_prior = 255 * torch.rand(batch_size, consts.NUM_Z_CHANNELS)
-        d_z_prior = self.Dz(d_z_prior)
+        d_z_prior = self.Dz(d_z_prior.to(device=consts.device))
         for epoch in range(1, epochs + 1):
             epoch_loss = 0
             epoch_loss_valid = 0
@@ -244,7 +244,7 @@ class Net(object):
                 labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device)
                                       for l in list(labels.numpy())])
                 labels = labels.to(device=consts.device)
-
+                print ("DEBUG: iteration: "+str(i)+" images shape: "+str(images.shape))
                 z = self.E(images)
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)

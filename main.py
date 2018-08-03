@@ -30,7 +30,7 @@ if 'net' not in globals() and False:  # for interactive execution in PyCharm
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This.')
     parser.add_argument('--mode', choices=['train', 'test'], default='train')
-    parser.add_argument('--cuda', default=False, type=bool)
+    parser.add_argument('--cuda', default=True, type=bool)
 
     # train params
     parser.add_argument('--tdset', '--train-dataset', dest='train_dataset', default='./data/UTKFace')
