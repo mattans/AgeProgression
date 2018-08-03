@@ -230,8 +230,8 @@ class Net(object):
         epoch_losses = []
         epoch_losses_valid = []
         loss_tracker = LossTracker()
-        d_z_prior = 255 * torch.rand(batch_size, consts.NUM_Z_CHANNELS)
-        d_z_prior = self.Dz(d_z_prior)
+        z_prior = 255 * torch.rand(batch_size, consts.NUM_Z_CHANNELS)
+        d_z_prior = self.Dz(z_prior.to(device=consts.device))
         for epoch in range(1, epochs + 1):
             epoch_loss = 0
             epoch_loss_valid = 0
@@ -246,6 +246,9 @@ class Net(object):
                 labels = labels.to(device=consts.device)
 
                 z = self.E(images)
+                if(z.shape != z_prior.shape):
+                    z_prior = 255 * torch.rand(z.shape[0], consts.NUM_Z_CHANNELS)
+                    d_z_prior = self.Dz(z_prior.to(device=consts.device))
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)
                 eg_loss = eg_criterion(generated, images)
