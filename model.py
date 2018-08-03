@@ -276,6 +276,7 @@ class Net(object):
                     cp_path = self.save(name)
                     # joined_image = one_sided(torch.cat((images, generated), 0))
                     # save_image(joined_image, os.path.join(cp_path, 'reconstruct.png'))
+            epoch_losses += [epoch_loss / i]
 
             with torch.no_grad():  # validation
 
@@ -288,6 +289,7 @@ class Net(object):
                 loss = nn.functional.l1_loss(validate_images, generated)
                 torchvision.utils.save_image(generated, 'results/img_' + str(epoch) + '.png', nrow=8)
                 epoch_loss_valid += loss.item()
+            epoch_losses_valid += [epoch_loss_valid/ii]
 
             loss_tracker.append(epoch_loss / i, epoch_loss_valid / ii, cp_path)
             try:
