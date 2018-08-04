@@ -220,7 +220,7 @@ class Net(object):
             labels = torch.stack(
                 [str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
             validate_labels = labels.to(device=consts.device)
-        joined_image = one_sided(torch.cat((images, validate_images), 0))
+        joined_image = one_sided(validate_images)
 
         torchvision.utils.save_image(joined_image, "./results/base.png")#, nrow=8)
 
@@ -289,7 +289,7 @@ class Net(object):
                 z_l = torch.cat((z, validate_labels), 1)
                 generated = self.G(z_l)
                 loss = nn.functional.l1_loss(validate_images, generated)
-                joined_image = one_sided(torch.cat((images, validate_images), 0))
+                joined_image = one_sided(validate_images)
                 torchvision.utils.save_image(joined_image, 'results/img_' + str(epoch) + '.png')#, nrow=8)
                 epoch_loss_valid += loss.item()
             epoch_losses_valid += [epoch_loss_valid/ii]
