@@ -3,6 +3,7 @@ import os
 
 from shutil import copyfile
 import numpy as np
+import matplotlib.pyplot as plt
 from collections import namedtuple
 
 import torch
@@ -112,7 +113,7 @@ def optimizer_and_criterion(criter_class, optim_class, *modules, **optim_args):
     for module in modules:
         params.extend(list(module.parameters()))
     optimizier = optim_class(params=params, **optim_args)
-    return optimizier, criter_class(size_average=True)
+    return optimizier, criter_class(reduction='elementwise_mean')
 
 
 def default_results_dir():
@@ -153,4 +154,11 @@ class LossTracker(object):
                 pass  # saturation \ small fluctuations
 
     def plot(self):
-        raise NotImplementedError()
+        t_loss, = plt.plot(self.train_losses, label='Training loss')
+        v_loss, = plt.plot(self.valid_losses, label='Validation loss')
+        plt.legend(handles=[t_loss, v_loss])
+        plt.xlabel('Epochs')
+        plt.ylabel('Averaged loss')
+        plt.title('Training and validation losses by epoch')
+        plt.grid(True)
+        plt.show()

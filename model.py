@@ -218,8 +218,6 @@ class Net(object):
 
         #  TODO - write a txt file with all arguments to results folder
 
-        epoch_losses = []
-        epoch_losses_valid = []
         loss_tracker = LossTracker()
         for epoch in range(1, epochs + 1):
             epoch_loss = 0
@@ -277,8 +275,9 @@ class Net(object):
                     epoch_loss_valid += loss.item()
 
             loss_tracker.append(epoch_loss / i, epoch_loss_valid / ii, cp_path)
-            print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {epoch_losses[-1]:f} Validation Loss: {epoch_losses_valid[-1]:f}")
+            print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {loss_tracker.train_losses[-1]:f} Validation Loss: {loss_tracker.valid_losses[-1]:f}")
 
+        loss_tracker.plot()
 
     def to(self, device):
         for subnet in self.subnets:
