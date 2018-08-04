@@ -256,7 +256,7 @@ class Net(object):
                 generated = self.G(z_l)
                 eg_loss = eg_criterion(generated, images)
 
-                reg_loss = 0 * (
+                reg_loss = 0.00017 * (
                         torch.sum(torch.abs(generated[:, :, :, :-1] - generated[:, :, :, 1:])) +
                         torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
                 ) / batch_size  # TO DO - ADD TOTAL VARIANCE LOSS
@@ -265,7 +265,7 @@ class Net(object):
                 dz_loss = z_criterion(d_z_prior, d_z)
                 eg_optimizer.zero_grad()
                 z_optimizer.zero_grad()
-                loss = eg_loss + reg_loss + dz_loss
+                loss = eg_loss + reg_loss + 0.5*dz_loss
                 loss.backward(retain_graph=True)
                 eg_optimizer.step()
                 z_optimizer.step()
