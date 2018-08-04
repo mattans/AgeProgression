@@ -234,6 +234,7 @@ class Net(object):
         loss_tracker = LossTracker()
         z_prior = 255 * torch.rand(batch_size, consts.NUM_Z_CHANNELS)
         d_z_prior = self.Dz(z_prior.to(device=consts.device))
+        save_count = 0
         for epoch in range(1, epochs + 1):
             epoch_loss = 0
             epoch_loss_valid = 0
@@ -271,13 +272,14 @@ class Net(object):
                 now = datetime.datetime.now()
 
                 epoch_loss += loss.item()
-                if i % 100 == 0:
+                if save_count % 500 == 0 and save_count != 0:
                     logging.info('[{h}:{m}[Epoch {e}, i: {c}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, c=i,
                                                                                 t=loss.item()))
                     print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
                     cp_path = self.save(name)
                     # joined_image = one_sided(torch.cat((images, generated), 0))
                     # save_image(joined_image, os.path.join(cp_path, 'reconstruct.png'))
+                save_count += 1
             epoch_losses += [epoch_loss / i]
 
             with torch.no_grad():  # validation
@@ -290,7 +292,7 @@ class Net(object):
                 generated = self.G(z_l)
                 loss = nn.functional.l1_loss(validate_images, generated)
                 joined_image = one_sided(generated)
-                torchvision.utils.save_image(generated, 'results/img_' + str(epoch) + '.png', nrow=8)
+                #torchvision.utils.save_image(generated, 'results/img_' + str(epoch) + '.png', nrow=8)
                 torchvision.utils.save_image(joined_image, 'results/onesided_' + str(epoch) + '.png', nrow=8)
                 epoch_loss_valid += loss.item()
             epoch_losses_valid += [epoch_loss_valid/ii]
