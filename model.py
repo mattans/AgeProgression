@@ -289,7 +289,7 @@ class Net(object):
                 z_l = torch.cat((z, validate_labels), 1)
                 generated = self.G(z_l)
                 loss = nn.functional.l1_loss(validate_images, generated)
-                joined_image = one_sided(validate_images)
+                joined_image = one_sided(generated)
                 torchvision.utils.save_image(joined_image, 'results/img_' + str(epoch) + '.png')#, nrow=8)
                 epoch_loss_valid += loss.item()
             epoch_losses_valid += [epoch_loss_valid/ii]
