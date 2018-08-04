@@ -4,12 +4,16 @@ import consts
 import re
 import numpy as np
 import argparse
-
+import sys
 import random
 import datetime
 import torch
 import utils
 
+assert sys.version_info >= (3, 6),\
+    "This script requires Python >= 3.6"  # TODO 3.7?
+assert tuple(int(ver_num) for ver_num in torch.__version__.split('.')) >= (0, 4, 0),\
+    "This script requires PyTorch >= 0.4.0"  # TODO 0.4.1?
 
 if 'net' not in globals() and False:  # for interactive execution in PyCharm
     net = model.Net()
