@@ -220,7 +220,9 @@ class Net(object):
             labels = torch.stack(
                 [str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
             validate_labels = labels.to(device=consts.device)
-        torchvision.utils.save_image(validate_images, "./results/base.png", nrow=8)
+        joined_image = one_sided(torch.cat((images, validate_images), 0))
+
+        torchvision.utils.save_image(joined_image, "./results/base.png")#, nrow=8)
 
         eg_optimizer, eg_criterion = optimizer_and_criterion(nn.L1Loss, Adam, self.E, self.G, weight_decay=weight_decay, betas=betas, lr=learning_rate)
         z_optimizer, z_criterion = optimizer_and_criterion(nn.BCEWithLogitsLoss, Adam, self.Dz, weight_decay=weight_decay, betas=betas, lr=learning_rate)
@@ -287,7 +289,8 @@ class Net(object):
                 z_l = torch.cat((z, validate_labels), 1)
                 generated = self.G(z_l)
                 loss = nn.functional.l1_loss(validate_images, generated)
-                torchvision.utils.save_image(generated, 'results/img_' + str(epoch) + '.png', nrow=8)
+                joined_image = one_sided(torch.cat((images, validate_images), 0))
+                torchvision.utils.save_image(joined_image, 'results/img_' + str(epoch) + '.png')#, nrow=8)
                 epoch_loss_valid += loss.item()
             epoch_losses_valid += [epoch_loss_valid/ii]
 
