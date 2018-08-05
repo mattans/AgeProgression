@@ -127,8 +127,11 @@ def optimizer_and_criterion(criter_class, optim_class, *modules, **optim_args):
     return optimizier, criter_class(reduction='elementwise_mean')
 
 
-def default_results_dir():
+def default_train_results_dir():
     return os.path.join('.', 'trained_models', datetime.datetime.now().strftime("%Y_%m_%d___%H_%M_%S"))
+
+def default_test_results_dir():
+    return os.path.join('.', 'test_results', datetime.datetime.now().strftime("%Y_%m_%d___%H_%M_%S"))
 
 
 class LossTracker(object):

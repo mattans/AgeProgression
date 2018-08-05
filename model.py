@@ -221,7 +221,7 @@ class Net(object):
             weight_decay=1e-5,
             learning_rate=2e-4,
             betas=(0.9, 0.999),
-            name=default_results_dir(),
+            name=default_train_results_dir(),
             valid_size=0.01,
     ):
 
