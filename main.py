@@ -17,7 +17,7 @@ assert tuple(int(ver_num) for ver_num in torch.__version__.split('.')) >= (0, 4,
     "This script requires PyTorch >= 0.4.0"  # TODO 0.4.1?
 
 def str_to_gender(s):
-    s = str(s).tolower()
+    s = str(s).lower()
     if s in ('m', 'man', '0'):
         return 0
     elif s in ('f', 'female', '1'):
