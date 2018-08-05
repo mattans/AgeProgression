@@ -9,6 +9,7 @@ from collections import namedtuple
 import torch
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
+from torch.utils.data import DataLoader
 import datetime
 
 def merge(images, size):
@@ -24,12 +25,18 @@ def merge(images, size):
 
     return img
 
-def get_utkface_dataset(root):
-    ret = lambda: ImageFolder(os.path.join(root, 'labeled'), transform=transforms.Compose([
+
+pil_to_model_tensor_transform = transforms.Compose(
+    [
         transforms.Resize(size=(128, 128)),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: 2 * x - 1)  # [0:1] -> [-1:1]
-    ]))
+    ]
+)
+
+
+def get_utkface_dataset(root):
+    ret = lambda: ImageFolder(os.path.join(root, 'labeled'), transform=pil_to_model_tensor_transform)
     try:
         return ret()
     except (RuntimeError, FileNotFoundError):
@@ -71,6 +78,10 @@ def sort_to_classes(root, print_cycle=np.inf):
         if copied_count % print_cycle == 0:
             log('Copied %d files.' % copied_count)
     log('Finished labeling process.')
+
+
+def get_fgnet_person_loader(root):
+    return DataLoader(dataset=ImageFolder(root, transform=pil_to_model_tensor_transform), batch_size=1)
 
 
 def str_to_tensor(text):

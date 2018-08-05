@@ -53,7 +53,7 @@ if __name__ == '__main__':
         results_dest = args.results_dest or utils.default_results_dir()
 
 
-        net.train(
+        net.teach(
             utkface_path=args.train_dataset,
             batch_size=args.batch_size,
             betas=(args.b1, args.b2),
