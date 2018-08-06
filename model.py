@@ -273,6 +273,7 @@ class Net(object):
 
                 epoch_loss += loss.item()
                 if save_count % 500 == 0:
+                    save_count = 0
                     logging.info('[{h}:{m}[Epoch {e}, i: {c}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, c=i,
                                                                                 t=loss.item()))
                     print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
