@@ -1,6 +1,7 @@
 import model
 import consts
-
+import logging
+import os
 import re
 import numpy as np
 import argparse
@@ -43,6 +44,12 @@ if __name__ == '__main__':
     parser.add_argument('--resdest', '--results-dest', dest='results_dest', default='')
 
     args = parser.parse_args()
+
+    try:
+        os.remove(r'results/log_results.log')
+    except:
+        pass
+    logging.basicConfig(filename=r'results/log_results.log', level=logging.DEBUG)
 
     net = model.Net()
     if args.cuda:
