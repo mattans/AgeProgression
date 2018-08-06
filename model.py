@@ -185,7 +185,36 @@ class Net(object):
     def __repr__(self):
         return os.linesep.join([repr(subnet) for subnet in self.subnets])
 
-    def train(
+    def test_single(self, img_tensor, age, gender, target):
+        self.eval()
+        batch = img_tensor.repeat(consts.NUM_AGES, 1, 1, 1)  # N x D x H x W
+        z = self.E(batch)  # N x Z
+
+        gender_tensor = -torch.ones(consts.NUM_GENDERS)
+        gender_tensor[int(gender)] *= -1
+        gender_tensor = gender_tensor.repeat(consts.NUM_AGES, 1)  # apply gender on all images
+
+        age_tensor = -torch.ones(consts.NUM_AGES, consts.NUM_AGES)
+        for i in range(consts.NUM_AGES):
+            age_tensor[i][i] *= -1  # apply the i'th age group on the i'th image
+
+        l = torch.cat((age_tensor, gender_tensor), 1)
+        z_l = torch.cat((z, l), 1)
+
+        generated = self.G(z_l)
+
+        # TODO - add the original image with the true age caption on it
+
+        save_image(
+            tensor=generated,
+            filename=target,
+            nrow=generated.size(0),
+            normalize=True,
+            range=(-1, 1),
+        )
+
+
+    def teach(
             self,
             utkface_path,
             batch_size=64,
@@ -193,7 +222,7 @@ class Net(object):
             weight_decay=1e-5,
             learning_rate=2e-4,
             betas=(0.9, 0.999),
-            name=default_results_dir(),
+            name=default_train_results_dir(),
             valid_size=consts.BATCH_SIZE,
     ):
 
@@ -229,8 +258,6 @@ class Net(object):
 
         #  TODO - write a txt file with all arguments to results folder
 
-        epoch_losses = []
-        epoch_losses_valid = []
         loss_tracker = LossTracker()
         z_prior = 255 * torch.rand(batch_size, consts.NUM_Z_CHANNELS)
         d_z_prior = self.Dz(z_prior.to(device=consts.device))
@@ -240,8 +267,7 @@ class Net(object):
             epoch_loss_valid = 0
             for i, (images, labels) in enumerate(train_loader, 1):
 
-                for subnet in self.subnets:
-                    subnet.train()  # move to train mode
+                self.train()  # move to train mode
 
                 images = images.to(device=consts.device)
                 labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device)
@@ -285,8 +311,7 @@ class Net(object):
 
             with torch.no_grad():  # validation
 
-                for subnet in self.subnets:
-                    subnet.eval()  # move to eval mode
+                self.eval()  # move to eval mode
 
                 z = self.E(validate_images)
                 z_l = torch.cat((z, validate_labels), 1)
@@ -303,9 +328,8 @@ class Net(object):
                 logging.info('[{h}:{m}[Epoch {e}] Train Loss: {t} Vlidation Loss: {v}'.format(h=now.hour, m=now.minute,
                                                                                               e=epoch, t=epoch_losses[-1],
                                                                                               v=epoch_losses_valid[-1]))
-                print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {epoch_losses[-1]:f} Validation Loss: "
-                      f"{epoch_losses_valid[-1]:f}")
-            except IndexError as e:
+                print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {loss_tracker.train_losses[-1]:f} Validation Loss: {loss_tracker.valid_losses[-1]:f}")
+            except IndexError as e:  # should not reach here now
                 logging.error('[{h}:{m}' + str(e))
                 logging.error('[{h}:{m} epoch_losses: ' + str(epoch_losses))
                 logging.error('[{h}:{m} epoch_losses_valid: ' + str(epoch_losses_valid))
@@ -314,6 +338,7 @@ class Net(object):
                 print("epoch_losses_valid: " + str(epoch_losses_valid))
 
 
+        loss_tracker.plot()
 
     def to(self, device):
         for subnet in self.subnets:
@@ -326,6 +351,14 @@ class Net(object):
     def cuda(self):
         for subnet in self.subnets:
             subnet.cuda()
+
+    def eval(self):
+        for subnet in self.subnets:
+            subnet.eval()
+
+    def train(self):
+        for subnet in self.subnets:
+            subnet.train()
 
     def save(self, path):
         if not os.path.isdir(path):
