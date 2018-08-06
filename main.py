@@ -1,6 +1,7 @@
 import model
 import consts
-
+import logging
+import os
 import re
 import numpy as np
 import argparse
@@ -54,6 +55,12 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    try:
+        os.remove(r'results/log_results.log')
+    except:
+        pass
+    logging.basicConfig(filename=r'results/log_results.log', level=logging.DEBUG)
+
     net = model.Net()
     if args.cuda:
         net.cuda()
@@ -86,5 +93,4 @@ if __name__ == '__main__':
 
         img = utils.pil_to_model_tensor_transform(pil_loader(args.input))
         net.test_single(img_tensor=img, age=args.age, gender=args.gender, target=results_dest)
-
 

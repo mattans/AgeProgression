@@ -168,6 +168,7 @@ class LossTracker(object):
                 pass  # saturation \ small fluctuations
 
     def plot(self):
+
         t_loss, = plt.plot(self.train_losses, label='Training loss')
         v_loss, = plt.plot(self.valid_losses, label='Validation loss')
         plt.legend(handles=[t_loss, v_loss])
@@ -176,3 +177,30 @@ class LossTracker(object):
         plt.title('Training and validation losses by epoch')
         plt.grid(True)
         plt.show()
+
+
+def get_list_of_labels(lst):
+    new_list = []
+    for label in lst:
+        if 0 <= label <= 5:
+            new_list.append(0)
+        elif 6 <= label <= 10:
+            new_list.append(1)
+        elif 11 <= label <= 15:
+            new_list.append(2)
+        elif 16 <= label <= 20:
+            new_list.append(3)
+        elif 21 <= label <= 30:
+            new_list.append(4)
+        elif 31 <= label <= 40:
+            new_list.append(5)
+        elif 41 <= label <= 50:
+            new_list.append(6)
+        elif 51 <= label <= 60:
+            new_list.append(7)
+        elif 61 <= label <= 70:
+            new_list.append(89)
+        else:
+            new_list.append(9)
+        return new_list
+

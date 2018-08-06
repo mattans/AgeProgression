@@ -14,6 +14,7 @@ import datetime
 from scipy.misc import imsave as ims
 import torchvision
 from torchvision.datasets import ImageFolder
+import logging
 # from torch.nn.functional import relu
 from torch.utils.data.sampler import SubsetRandomSampler
 
@@ -222,14 +223,15 @@ class Net(object):
             learning_rate=2e-4,
             betas=(0.9, 0.999),
             name=default_train_results_dir(),
-            valid_size=0.01,
+            valid_size=consts.BATCH_SIZE,
     ):
 
         train_dataset = get_utkface_dataset(utkface_path)
         valid_dataset = get_utkface_dataset(utkface_path)
         dset_size = len(train_dataset)
         indices = list(range(dset_size))
-        split = int(np.floor(valid_size * dset_size))
+        # split = int(np.floor(valid_size * dset_size))
+        split = int(np.floor(valid_size))
         # np.random.seed(random_seed)
         np.random.shuffle(indices)
         train_idx, valid_idx = indices[split:], indices[:split]
@@ -240,7 +242,16 @@ class Net(object):
         valid_loader = DataLoader(dataset=valid_dataset, batch_size=batch_size, sampler=valid_sampler)
         idx_to_class = {v: k for k, v in train_dataset.class_to_idx.items()}
 
+        validate_images = None
+        validate_labels = None
+        for ii, (images, labels) in enumerate(valid_loader, 1):
+            validate_images = images.to(device=consts.device)
+            labels = torch.stack(
+                [str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
+            validate_labels = labels.to(device=consts.device)
+        joined_image = one_sided(validate_images)
 
+        torchvision.utils.save_image(joined_image, "./results/base.png")#, nrow=8)
 
         eg_optimizer, eg_criterion = optimizer_and_criterion(nn.L1Loss, Adam, self.E, self.G, weight_decay=weight_decay, betas=betas, lr=learning_rate)
         z_optimizer, z_criterion = optimizer_and_criterion(nn.BCEWithLogitsLoss, Adam, self.Dz, weight_decay=weight_decay, betas=betas, lr=learning_rate)
@@ -248,6 +259,9 @@ class Net(object):
         #  TODO - write a txt file with all arguments to results folder
 
         loss_tracker = LossTracker()
+        z_prior = 255 * torch.rand(batch_size, consts.NUM_Z_CHANNELS)
+        d_z_prior = self.Dz(z_prior.to(device=consts.device))
+        save_count = 0
         for epoch in range(1, epochs + 1):
             epoch_loss = 0
             epoch_loss_valid = 0
@@ -256,10 +270,14 @@ class Net(object):
                 self.train()  # move to train mode
 
                 images = images.to(device=consts.device)
-                labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
+                labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device)
+                                      for l in list(labels.numpy())])
                 labels = labels.to(device=consts.device)
-
+                print ("DEBUG: iteration: "+str(i)+" images shape: "+str(images.shape))
                 z = self.E(images)
+                if(z.shape != z_prior.shape):
+                    z_prior = 255 * torch.rand(z.shape[0], consts.NUM_Z_CHANNELS)
+                    d_z_prior = self.Dz(z_prior.to(device=consts.device))
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)
                 eg_loss = eg_criterion(generated, images)
@@ -270,39 +288,55 @@ class Net(object):
                 ) / batch_size  # TO DO - ADD TOTAL VARIANCE LOSS
 
                 d_z = self.Dz(z)
-
+                dz_loss = z_criterion(d_z_prior, d_z)
                 eg_optimizer.zero_grad()
-                loss = eg_loss + reg_loss
+                z_optimizer.zero_grad()
+                loss = eg_loss + reg_loss + dz_loss
                 loss.backward(retain_graph=True)
                 eg_optimizer.step()
-
+                z_optimizer.step()
                 now = datetime.datetime.now()
 
                 epoch_loss += loss.item()
-                if i % 100 == 0:
+                if save_count % 500 == 0:
+                    save_count = 0
+                    logging.info('[{h}:{m}[Epoch {e}, i: {c}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, c=i,
+                                                                                t=loss.item()))
                     print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
                     cp_path = self.save(name)
-                    joined_image = one_sided(torch.cat((images, generated), 0))
-                    save_image(joined_image, os.path.join(cp_path, 'reconstruct.png'))
+                    # joined_image = one_sided(torch.cat((images, generated), 0))
+                    # save_image(joined_image, os.path.join(cp_path, 'reconstruct.png'))
+                save_count += 1
+            epoch_losses += [epoch_loss / i]
 
             with torch.no_grad():  # validation
 
                 self.eval()  # move to eval mode
 
-                for ii, (images, labels) in enumerate(valid_loader, 1):
-                    images = images.to(device=consts.device)
-                    labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device) for l in list(labels.numpy())])
-                    labels = labels.to(device=consts.device)
-
-                    z = self.E(images)
-                    z_l = torch.cat((z, labels), 1)
-                    generated = self.G(z_l)
-                    loss = nn.functional.l1_loss(images, generated)
-
-                    epoch_loss_valid += loss.item()
+                z = self.E(validate_images)
+                z_l = torch.cat((z, validate_labels), 1)
+                generated = self.G(z_l)
+                loss = nn.functional.l1_loss(validate_images, generated)
+                joined_image = one_sided(generated)
+                #torchvision.utils.save_image(generated, 'results/img_' + str(epoch) + '.png', nrow=8)
+                torchvision.utils.save_image(joined_image, 'results/onesided_' + str(epoch) + '.png', nrow=8)
+                epoch_loss_valid += loss.item()
+            epoch_losses_valid += [epoch_loss_valid/ii]
 
             loss_tracker.append(epoch_loss / i, epoch_loss_valid / ii, cp_path)
-            print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {loss_tracker.train_losses[-1]:f} Validation Loss: {loss_tracker.valid_losses[-1]:f}")
+            try:
+                logging.info('[{h}:{m}[Epoch {e}] Train Loss: {t} Vlidation Loss: {v}'.format(h=now.hour, m=now.minute,
+                                                                                              e=epoch, t=epoch_losses[-1],
+                                                                                              v=epoch_losses_valid[-1]))
+                print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {loss_tracker.train_losses[-1]:f} Validation Loss: {loss_tracker.valid_losses[-1]:f}")
+            except IndexError as e:  # should not reach here now
+                logging.error('[{h}:{m}' + str(e))
+                logging.error('[{h}:{m} epoch_losses: ' + str(epoch_losses))
+                logging.error('[{h}:{m} epoch_losses_valid: ' + str(epoch_losses_valid))
+                print(e)
+                print("epoch_losses: " + str(epoch_losses))
+                print("epoch_losses_valid: " + str(epoch_losses_valid))
+
 
         loss_tracker.plot()
 
