@@ -288,7 +288,8 @@ class Net(object):
                 labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device)
                                       for l in list(labels.numpy())])
                 labels = labels.to(device=consts.device)
-                # print ("DEBUG: iteration: "+str(i)+" images shape: "+str(images.shape))
+                if(i%50 == 0):
+                    print ("DEBUG: iteration: "+str(i)+" images shape: "+str(images.shape))
                 z = self.E(images)
                 if(z.shape != z_prior.shape):
                     z_prior = 2 * torch.rand(z.shape[0], consts.NUM_Z_CHANNELS) - 1
