@@ -23,7 +23,6 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
 
         num_conv_layers = int(torch.log2(consts.IMAGE_LENGTH)) - int(consts.KERNEL_SIZE / 2)
-
         self.conv_layers = nn.ModuleList()
 
         for i in range(1, num_conv_layers + 1):
