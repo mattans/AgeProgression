@@ -11,6 +11,9 @@ import datetime
 import torch
 import utils
 from torchvision.datasets.folder import pil_loader
+import gc
+
+gc.collect()
 
 assert sys.version_info >= (3, 6),\
     "This script requires Python >= 3.6"  # TODO 3.7?
@@ -50,7 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('--cuda', default=True, type=bool)
     parser.add_argument('--load', required=False, default=None)  # for pre-training or testing
     parser.add_argument('--input', '-i', dest='input', help='Training dataset path or testing image path')
-    parser.add_argument('--output', '-i', dest='output', default='')  # for checkpoints or test results
+    parser.add_argument('--output', '-o', dest='output', default='')  # for checkpoints or test results
 
 
     args = parser.parse_args()
@@ -89,8 +92,14 @@ if __name__ == '__main__':
         if args.load is None:
             raise RuntimeError("Must provide path of trained models")
 
+        net.load(args.load)
+
         results_dest = args.output or utils.default_test_results_dir()
 
         img = utils.pil_to_model_tensor_transform(pil_loader(args.input))
+        if args.cuda:
+            img = img.cuda()
+        else:
+            img = img.cpu()
         net.test_single(img_tensor=img, age=args.age, gender=args.gender, target=results_dest)
 

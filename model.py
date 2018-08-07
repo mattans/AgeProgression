@@ -188,7 +188,12 @@ class Net(object):
     def test_single(self, img_tensor, age, gender, target):
         self.eval()
         batch = img_tensor.repeat(consts.NUM_AGES, 1, 1, 1)  # N x D x H x W
+        batch.to(consts.device)
+        print(batch.shape, "batch")
+        print(img_tensor.shape, "img")
         z = self.E(batch)  # N x Z
+        z.to('cuda')
+        print(z.device)
 
         gender_tensor = -torch.ones(consts.NUM_GENDERS)
         gender_tensor[int(gender)] *= -1
@@ -199,16 +204,23 @@ class Net(object):
             age_tensor[i][i] *= -1  # apply the i'th age group on the i'th image
 
         l = torch.cat((age_tensor, gender_tensor), 1)
+        l = l.cuda()
+        print(l.device)
+        print(l)
         z_l = torch.cat((z, l), 1)
+        print(z_l.shape)
 
         generated = self.G(z_l)
+        print(generated.shape, "g")
+
+        joined = torch.cat((img_tensor.unsqueeze(0), generated), 0)
 
         # TODO - add the original image with the true age caption on it
 
         save_image(
-            tensor=generated,
-            filename=target,
-            nrow=generated.size(0),
+            tensor=joined,
+            filename=os.path.join(target, 'menifa.png'),
+            nrow=joined.size(0),
             normalize=True,
             range=(-1, 1),
         )
@@ -223,7 +235,7 @@ class Net(object):
             learning_rate=2e-4,
             betas=(0.9, 0.999),
             name=default_train_results_dir(),
-            valid_size=consts.BATCH_SIZE,
+            valid_size=None,
     ):
 
         train_dataset = get_utkface_dataset(utkface_path)
@@ -231,6 +243,7 @@ class Net(object):
         dset_size = len(train_dataset)
         indices = list(range(dset_size))
         # split = int(np.floor(valid_size * dset_size))
+        valid_size = valid_size or batch_size
         split = int(np.floor(valid_size))
         # np.random.seed(random_seed)
         np.random.shuffle(indices)
@@ -259,7 +272,7 @@ class Net(object):
         #  TODO - write a txt file with all arguments to results folder
 
         loss_tracker = LossTracker()
-        z_prior = 255 * torch.rand(batch_size, consts.NUM_Z_CHANNELS)
+        z_prior = 2 * torch.rand(batch_size, consts.NUM_Z_CHANNELS) - 1  # [-1 : 1]
         d_z_prior = self.Dz(z_prior.to(device=consts.device))
         save_count = 0
         for epoch in range(1, epochs + 1):
@@ -267,16 +280,19 @@ class Net(object):
             epoch_loss_valid = 0
             for i, (images, labels) in enumerate(train_loader, 1):
 
+                if images.size(0) != batch_size:
+                    continue  # tail batch, we can ignore it
+
                 self.train()  # move to train mode
 
                 images = images.to(device=consts.device)
                 labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=consts.device)
                                       for l in list(labels.numpy())])
                 labels = labels.to(device=consts.device)
-                print ("DEBUG: iteration: "+str(i)+" images shape: "+str(images.shape))
+                # print ("DEBUG: iteration: "+str(i)+" images shape: "+str(images.shape))
                 z = self.E(images)
                 if(z.shape != z_prior.shape):
-                    z_prior = 255 * torch.rand(z.shape[0], consts.NUM_Z_CHANNELS)
+                    z_prior = 2 * torch.rand(z.shape[0], consts.NUM_Z_CHANNELS) - 1
                     d_z_prior = self.Dz(z_prior.to(device=consts.device))
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)
@@ -307,7 +323,6 @@ class Net(object):
                     # joined_image = one_sided(torch.cat((images, generated), 0))
                     # save_image(joined_image, os.path.join(cp_path, 'reconstruct.png'))
                 save_count += 1
-            epoch_losses += [epoch_loss / i]
 
             with torch.no_grad():  # validation
 
@@ -321,23 +336,11 @@ class Net(object):
                 #torchvision.utils.save_image(generated, 'results/img_' + str(epoch) + '.png', nrow=8)
                 torchvision.utils.save_image(joined_image, 'results/onesided_' + str(epoch) + '.png', nrow=8)
                 epoch_loss_valid += loss.item()
-            epoch_losses_valid += [epoch_loss_valid/ii]
 
             loss_tracker.append(epoch_loss / i, epoch_loss_valid / ii, cp_path)
-            try:
-                logging.info('[{h}:{m}[Epoch {e}] Train Loss: {t} Vlidation Loss: {v}'.format(h=now.hour, m=now.minute,
-                                                                                              e=epoch, t=epoch_losses[-1],
-                                                                                              v=epoch_losses_valid[-1]))
-                print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Train Loss: {loss_tracker.train_losses[-1]:f} Validation Loss: {loss_tracker.valid_losses[-1]:f}")
-            except IndexError as e:  # should not reach here now
-                logging.error('[{h}:{m}' + str(e))
-                logging.error('[{h}:{m} epoch_losses: ' + str(epoch_losses))
-                logging.error('[{h}:{m} epoch_losses_valid: ' + str(epoch_losses_valid))
-                print(e)
-                print("epoch_losses: " + str(epoch_losses))
-                print("epoch_losses_valid: " + str(epoch_losses_valid))
-
-
+            logging.info('[{h}:{m}[Epoch {e}] Train Loss: {t} Vlidation Loss: {v}'.format(h=now.hour, m=now.minute,
+                                                                                              e=epoch, t=loss_tracker.train_losses[-1],
+                                                                                              v=loss_tracker.valid_losses[-1]))
         loss_tracker.plot()
 
     def to(self, device):
