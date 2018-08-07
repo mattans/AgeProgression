@@ -11,6 +11,9 @@ import datetime
 import torch
 import utils
 from torchvision.datasets.folder import pil_loader
+import gc
+
+gc.collect()
 
 assert sys.version_info >= (3, 6),\
     "This script requires Python >= 3.6"  # TODO 3.7?
@@ -89,8 +92,14 @@ if __name__ == '__main__':
         if args.load is None:
             raise RuntimeError("Must provide path of trained models")
 
+        net.load(args.load)
+
         results_dest = args.output or utils.default_test_results_dir()
 
         img = utils.pil_to_model_tensor_transform(pil_loader(args.input))
+        if args.cuda:
+            img = img.cuda()
+        else:
+            img = img.cpu()
         net.test_single(img_tensor=img, age=args.age, gender=args.gender, target=results_dest)
 
