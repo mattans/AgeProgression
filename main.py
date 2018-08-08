@@ -50,7 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('--gender', required=False, type=str_to_gender)
 
     # shared params
-    parser.add_argument('--cuda', default=False, type=bool)
+    parser.add_argument('--cuda', default=True, type=bool)
     parser.add_argument('--load', required=False, default=None)  # for pre-training or testing
     parser.add_argument('--input', '-i', dest='input', help='Training dataset path or testing image path', default="./data/UTKFace/")
     parser.add_argument('--output', '-o', dest='output', default='')  # for checkpoints or test results
