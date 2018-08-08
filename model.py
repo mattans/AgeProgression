@@ -317,9 +317,9 @@ class Net(object):
                 dz_optimizer.zero_grad()
                 eg_optimizer.zero_grad()
 
-                dz_loss_prior = dz_optimizer(d_z_prior,torch.ones_like(d_z_prior))
+                dz_loss_prior = dz_criterion(d_z_prior, torch.ones_like(d_z_prior))
                 dz_loss = dz_criterion(d_z, torch.zeros_like(d_z))
-                ez_loss = dz_optimizer(d_z, torch.ones_like(d_z))
+                ez_loss = dz_criterion(d_z, torch.ones_like(d_z))
                 dz_loss_tot = dz_loss + dz_loss_prior
 
                 dz_loss_tot.backward(retain_graph=True)
