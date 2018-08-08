@@ -266,13 +266,12 @@ class Net(object):
         torchvision.utils.save_image(joined_image, "./results/base.png")#, nrow=8)
 
         eg_optimizer, eg_criterion = optimizer_and_criterion(nn.L1Loss, Adam, self.E, self.G, weight_decay=weight_decay, betas=betas, lr=learning_rate)
-        z_optimizer, z_criterion = optimizer_and_criterion(nn.BCEWithLogitsLoss, Adam, self.Dz, weight_decay=weight_decay, betas=betas, lr=learning_rate)
+        dz_optimizer, dz_criterion = optimizer_and_criterion(nn.BCEWithLogitsLoss, Adam, self.Dz, weight_decay=weight_decay, betas=betas, lr=learning_rate)
 
         #  TODO - write a txt file with all arguments to results folder
 
         loss_tracker = LossTracker()
-        z_prior = 2 * torch.rand(batch_size, consts.NUM_Z_CHANNELS) - 1  # [-1 : 1]
-        d_z_prior = self.Dz(z_prior.to(device=consts.device))
+
         save_count = 0
         for epoch in range(1, epochs + 1):
             epoch_loss = 0
@@ -291,9 +290,14 @@ class Net(object):
                 if(i%50 == 0):
                     print ("DEBUG: iteration: "+str(i)+" images shape: "+str(images.shape))
                 z = self.E(images)
-                if(z.shape != z_prior.shape):
-                    z_prior = 2 * torch.rand(z.shape[0], consts.NUM_Z_CHANNELS) - 1
-                    d_z_prior = self.Dz(z_prior.to(device=consts.device))
+
+
+
+
+
+                # if(z.shape != z_prior.shape):
+                #     z_prior = 2 * torch.rand(z.shape[0], consts.NUM_Z_CHANNELS) - 1
+                #     d_z_prior = self.Dz(z_prior.to(device=consts.device))
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)
                 eg_loss = eg_criterion(generated, images)
@@ -303,14 +307,26 @@ class Net(object):
                         torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
                 ) / batch_size  # TO DO - ADD TOTAL VARIANCE LOSS
 
+                ####D_Z####
+                z_prior = 2 * torch.rand(batch_size, consts.NUM_Z_CHANNELS) - 1  # [-1 : 1]
+                d_z_prior = self.Dz(z_prior.to(device=consts.device))
                 d_z = self.Dz(z)
-                dz_loss = z_criterion(d_z_prior, d_z)
+
+                dz_optimizer.zero_grad()
                 eg_optimizer.zero_grad()
-                z_optimizer.zero_grad()
-                loss = eg_loss + reg_loss + dz_loss
+
+                dz_loss_prior = dz_optimizer(d_z_prior,torch.ones_like(d_z_prior))
+                dz_loss = dz_criterion(d_z, torch.zeros_like(d_z))
+                ez_loss = dz_optimizer(d_z, torch.ones_like(d_z))
+                dz_loss_tot = dz_loss + dz_loss_prior
+
+                dz_loss_tot.backward(retain_graph=True)
+                loss = eg_loss + reg_loss + ez_loss
+                #dz_loss = z_criterion(d_z_prior, d_z)
+
                 loss.backward(retain_graph=True)
                 eg_optimizer.step()
-                z_optimizer.step()
+                dz_optimizer.step()
                 now = datetime.datetime.now()
 
                 epoch_loss += loss.item()
