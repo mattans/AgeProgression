@@ -23,6 +23,7 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
 
         num_conv_layers = int(torch.log2(consts.IMAGE_LENGTH)) - int(consts.KERNEL_SIZE / 2)
+        num_conv_layers = 5
         self.conv_layers = nn.ModuleList()
 
         for i in range(1, num_conv_layers + 1):
@@ -123,6 +124,7 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         num_deconv_layers = int(torch.log2(consts.IMAGE_LENGTH)) - int(consts.KERNEL_SIZE / 2) # TODO
+        num_deconv_layers = 5
         mini_size = 8
         self.fc = nn.Sequential(
             nn.Linear(consts.NUM_Z_CHANNELS + consts.NUM_AGES + consts.NUM_GENDERS, consts.NUM_GEN_CHANNELS * mini_size**2),
