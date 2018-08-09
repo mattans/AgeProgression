@@ -314,21 +314,22 @@ class Net(object):
                 d_z_prior = self.Dz(z_prior.to(device=consts.device))
                 d_z = self.Dz(z)
 
-                dz_optimizer.zero_grad()
-                eg_optimizer.zero_grad()
 
                 dz_loss_prior = dz_criterion(d_z_prior, torch.ones_like(d_z_prior))
                 dz_loss = dz_criterion(d_z, torch.zeros_like(d_z))
                 ez_loss = dz_criterion(d_z, torch.ones_like(d_z))
                 dz_loss_tot = dz_loss + dz_loss_prior
-
-                dz_loss_tot.backward(retain_graph=True)
                 loss = eg_loss + reg_loss + ez_loss
-                #dz_loss = z_criterion(d_z_prior, d_z)
 
+                dz_optimizer.zero_grad()
+                dz_loss_tot.backward(retain_graph=True)
+                dz_optimizer.step()
+
+                eg_optimizer.zero_grad()
                 loss.backward(retain_graph=True)
                 eg_optimizer.step()
-                dz_optimizer.step()
+                #dz_loss = z_criterion(d_z_prior, d_z)
+
                 now = datetime.datetime.now()
 
                 epoch_loss += loss.item()
