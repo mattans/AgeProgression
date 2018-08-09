@@ -22,26 +22,26 @@ class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
 
-        num_conv_layers = int(torch.log2(consts.IMAGE_LENGTH)) - int(consts.KERNEL_SIZE / 2)
-        #num_conv_layers = 5
+        num_conv_layers = 5
+
         self.conv_layers = nn.ModuleList()
 
         for i in range(1, num_conv_layers + 1):
-            not_input_layer = i > 1
-            self.conv_layers.add_module('e_conv_%d' % i, nn.Sequential(*[
-                    nn.Conv2d(
-                        in_channels=(consts.NUM_ENCODER_CHANNELS * 2**(i-2)) if not_input_layer else int(consts.IMAGE_DEPTH),
-                        out_channels=consts.NUM_ENCODER_CHANNELS * 2**(i-1),
-                        kernel_size=consts.KERNEL_SIZE,
-                        stride=consts.STRIDE_SIZE,
-                        padding=2
-                    ),
-                    nn.ReLU()
-            ]))
+            input_layer = i == 1
+            self.conv_layers.add_module('e_conv_%d' % i, nn.Sequential(
+                nn.Conv2d(
+                    in_channels=(consts.NUM_ENCODER_CHANNELS * 2 ** (i - 2)) if not input_layer else int(consts.IMAGE_DEPTH),
+                    out_channels=consts.NUM_ENCODER_CHANNELS * 2 ** (i - 1),
+                    kernel_size=2,
+                    stride=2,
+                ),
+                nn.ReLU()
+            ))
 
         self.fc_layer = nn.Sequential(OrderedDict([
             ('e_fc_1', nn.Linear(
-                in_features=consts.NUM_ENCODER_CHANNELS * int(consts.IMAGE_LENGTH**2) // int(2**(num_conv_layers+1)),
+                in_features=consts.NUM_ENCODER_CHANNELS * int(consts.IMAGE_LENGTH ** 2) // int(
+                    2 ** (num_conv_layers + 1)),
                 out_features=consts.NUM_Z_CHANNELS
             )),
             ('tanh_1', nn.Tanh())  # normalize to [-1, 1] range
@@ -62,7 +62,8 @@ class Encoder(nn.Module):
 class DiscriminatorZ(nn.Module):
     def __init__(self):
         super(DiscriminatorZ, self).__init__()
-        dims = (consts.NUM_Z_CHANNELS, consts.NUM_ENCODER_CHANNELS, consts.NUM_ENCODER_CHANNELS // 2, consts.NUM_ENCODER_CHANNELS // 4)
+        dims = (consts.NUM_Z_CHANNELS, consts.NUM_ENCODER_CHANNELS, consts.NUM_ENCODER_CHANNELS // 2,
+                consts.NUM_ENCODER_CHANNELS // 4)
         self.layers = nn.ModuleList()
         i = 0
         for i, (in_dim, out_dim) in enumerate(zip(dims[:-1], dims[1:]), 1):
@@ -101,13 +102,13 @@ class DiscriminatorImg(nn.Module):
             )
 
         self.fc_1 = nn.Sequential(
-                nn.Linear(128*8*8, 1024),
-                nn.ReLU()
+            nn.Linear(128 * 8 * 8, 1024),
+            nn.ReLU()
         )
 
         self.fc_2 = nn.Sequential(
-                nn.Linear(1024, 1),
-                # nn.Sigmoid()
+            nn.Linear(1024, 1),
+            # nn.Sigmoid()
         )
 
     def forward(self, img, label):
@@ -119,15 +120,14 @@ class DiscriminatorImg(nn.Module):
         return out
 
 
-
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
-        num_deconv_layers = int(torch.log2(consts.IMAGE_LENGTH)) - int(consts.KERNEL_SIZE / 2) # TODO
-        #num_deconv_layers = 5
+        num_deconv_layers = 5
         mini_size = 8
         self.fc = nn.Sequential(
-            nn.Linear(consts.NUM_Z_CHANNELS + consts.NUM_AGES + consts.NUM_GENDERS, consts.NUM_GEN_CHANNELS * mini_size**2),
+            nn.Linear(consts.NUM_Z_CHANNELS + consts.NUM_AGES + consts.NUM_GENDERS,
+                      consts.NUM_GEN_CHANNELS * mini_size ** 2),
             nn.ReLU()
         )
         # need to reshape now to ?,1024,8,8
@@ -135,38 +135,31 @@ class Generator(nn.Module):
         self.deconv_layers = nn.ModuleList()
 
         for i in range(1, num_deconv_layers + 1):
-            not_output_layer = i < num_deconv_layers
+            output_layer = i == num_deconv_layers
             self.deconv_layers.add_module('g_deconv_%d' % i, nn.Sequential(*[
                 nn.ConvTranspose2d(
                     in_channels=int(consts.NUM_GEN_CHANNELS // (2 ** (i - 1))),
-                    out_channels=int(consts.NUM_GEN_CHANNELS // (2 ** i)) if not_output_layer else 3,
-                    kernel_size=2 if not_output_layer else 1,
-                    stride=2 if not_output_layer else 1,
+                    out_channels=int(consts.NUM_GEN_CHANNELS // (2 ** i)) if not output_layer else 3,
+                    kernel_size=2 if not output_layer else 1,
+                    stride=2 if not output_layer else 1,
                 ),
-                nn.ReLU() if not_output_layer else nn.Tanh()
+                nn.ReLU() if not output_layer else nn.Tanh()
             ]))
 
     def _decompress(self, x):
         return x.view(x.size(0), 1024, 8, 8)  # TODO - replace hardcoded
 
-    def forward(self, z, age=None, gender=None, debug=False, debug_fc=False, debug_deconv=[]):
+    def forward(self, z, age=None, gender=None):
         out = z
         if age is not None and gender is not None:
             label = Label(age, gender).to_tensor()\
                 if (isinstance(age, int) and isinstance(gender, int))\
                 else torch.cat((age, gender), 1)
             out = torch.cat((out, label), 1)  # z_l
-        if (not debug) or (debug and debug_fc):
-            out = self.fc(out)
-            out = self._decompress(out)
-            if debug:
-                print("G FC output size: " + str(out.size()))
+        out = self.fc(out)
+        out = self._decompress(out)
         for i, deconv_layer in enumerate(self.deconv_layers, 1):
-            if (not debug) or (debug and (i in debug_deconv)):
                 out = deconv_layer(out)
-                if debug:
-                    print("G CONV {} output size: {}".format(i, out.size()))
-
         return out
 
 
