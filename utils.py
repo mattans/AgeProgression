@@ -91,7 +91,6 @@ def str_to_tensor(text):
     gender_tensor = -torch.ones(consts.NUM_GENDERS)
     gender_tensor[int(gender)] *= -1
     result = torch.cat((age_tensor, gender_tensor), 0)
-    result = result.to(device=consts.device)
     return result
 
 
@@ -127,25 +126,33 @@ def optimizer_and_criterion(criter_class, optim_class, *modules, **optim_args):
     return optimizier, criter_class(reduction='elementwise_mean')
 
 
-def default_train_results_dir():
-    return os.path.join('.', 'trained_models', datetime.datetime.now().strftime("%Y_%m_%d___%H_%M_%S"))
+fmt = "%Y_%m_%d___%H_%M_%S"
 
-def default_test_results_dir():
-    return os.path.join('.', 'test_results', datetime.datetime.now().strftime("%Y_%m_%d___%H_%M_%S"))
+
+def default_train_results_dir(eval=True):
+    return os.path.join('.', 'trained_models', datetime.datetime.now().strftime(fmt) if eval else fmt)
+
+
+def default_test_results_dir(eval=True):
+    return os.path.join('.', 'test_results', datetime.datetime.now().strftime(fmt) if eval else fmt)
 
 
 class LossTracker(object):
     def __init__(self, use_heuristics=False, eps=1e-3):
         self.train_losses = []
         self.valid_losses = []
+        self.tv_losses = []
+        self.uni_losses = []
         self.paths = []
         self.epochs = 0
         self.use_heuristics = use_heuristics
         self.eps = abs(eps)
 
-    def append(self, train_loss, valid_loss, path):
+    def append(self, train_loss, valid_loss, tv_loss, uni_loss, path):
         self.train_losses.append(train_loss)
         self.valid_losses.append(valid_loss)
+        self.tv_losses.append(tv_loss)
+        self.uni_losses.append(uni_loss)
         self.paths.append(path)
         self.epochs += 1
         if self.use_heuristics and self.epochs >= 2:
@@ -169,12 +176,14 @@ class LossTracker(object):
 
     def plot(self):
 
-        t_loss, = plt.plot(self.train_losses, label='Training loss')
-        v_loss, = plt.plot(self.valid_losses, label='Validation loss')
-        plt.legend(handles=[t_loss, v_loss])
+        p0, = plt.plot(self.train_losses, label='Training')
+        p1, = plt.plot(self.valid_losses, label='Validation')
+        p2, = plt.plot(self.tv_losses, label='TotalVar')
+        p3, = plt.plot(self.uni_losses, label='Uniformity')
+        plt.legend(handles=[p0, p1, p2, p3])
         plt.xlabel('Epochs')
         plt.ylabel('Averaged loss')
-        plt.title('Training and validation losses by epoch')
+        plt.title('Losses by epoch')
         plt.grid(True)
         plt.show()
 
