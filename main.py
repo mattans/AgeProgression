@@ -101,5 +101,5 @@ if __name__ == '__main__':
             img = img.cuda()
         else:
             img = img.cpu()
-        net.test_single(img_tensor=img, age=args.age, gender=args.gender, target=results_dest)
+        net.test_single(img_tensor=img, age=args.age, gender=int(args.gender), target=results_dest)
 
