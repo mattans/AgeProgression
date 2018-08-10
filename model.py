@@ -272,7 +272,7 @@ class Net(object):
 
         #  TODO - write a txt file with all arguments to results folder
 
-        loss_tracker = LossTracker()
+        loss_tracker = LossTracker('train', 'valid', 'dz', 'reg')
         # z_prior = 2 * torch.rand(batch_size, consts.NUM_Z_CHANNELS, device=self.device) - 1  # [-1 : 1]
         save_count = 0
         for epoch in range(1, epochs + 1):
@@ -299,25 +299,31 @@ class Net(object):
 
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)
-                eg_loss = eg_criterion(generated, images).cpu()
+                eg_loss = eg_criterion(generated, images)
                 epoch_eg_loss.append(eg_loss.item())
 
-                reg_loss = 0*0(
+                reg_loss = 0.001 * (
                         torch.sum(torch.abs(generated[:, :, :, :-1] - generated[:, :, :, 1:])) +
                         torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
-                ) / batch_size)  # TO DO - ADD TOTAL VARIANCE LOSS
+                ) / batch_size  # TO DO - ADD TOTAL VARIANCE LOSS
+                reg_loss.to(self.device)
+                epoch_tv_loss.append(reg_loss.item())
 
                 ####D_Z####
-                z_prior = 2 * torch.rand_like_(z) - 1  # [-1 : 1]
-                d_z_prior = self.Dz(z_prior.to(device=consts.device))
+                z_prior = 2 * torch.rand_like(z) - 1  # [-1 : 1]
+                d_z_prior = self.Dz(z_prior.to(device=self.device))
                 d_z = self.Dz(z)
 
 
                 dz_loss_prior = dz_criterion(d_z_prior, torch.ones_like(d_z_prior))
                 dz_loss = dz_criterion(d_z, torch.zeros_like(d_z))
-                ez_loss = dz_criterion(d_z, torch.ones_like(d_z))
+                ez_loss = 0.0001 * dz_criterion(d_z, torch.ones_like(d_z))
+                ez_loss.to(self.device)
                 dz_loss_tot = dz_loss + dz_loss_prior
-                loss = eg_loss + 0*reg_loss + 0.0001*ez_loss
+                epoch_uni_loss.append(dz_loss_tot.item())
+
+                # print(eg_loss.device, reg_loss.device, ez_loss.device)
+                loss = eg_loss + reg_loss + ez_loss
 
                 dz_optimizer.zero_grad()
                 dz_loss_tot.backward(retain_graph=True)
@@ -326,10 +332,8 @@ class Net(object):
                 eg_optimizer.zero_grad()
                 loss.backward()
                 eg_optimizer.step()
-                #dz_loss = z_criterion(d_z_prior, d_z)
 
                 now = datetime.datetime.now()
-                epoch_tv_loss.append(reg_loss)
 
                 if save_count % 500 == 0:
                     save_count = 0
@@ -350,7 +354,6 @@ class Net(object):
                 generated = self.G(z_l)
                 loss = nn.functional.l1_loss(validate_images, generated)
                 joined_image = one_sided(generated)
-                # torchvision.utils.save_image(generated, 'results/img_' + str(epoch) + '.png', nrow=8)
                 torchvision.utils.save_image(joined_image, 'results/onesided_' + str(epoch) + '.png', nrow=8)
                 epoch_eg_valid_loss.append(loss.item())
 
@@ -359,13 +362,9 @@ class Net(object):
             epoch_tv_loss = np.array(epoch_tv_loss)
             epoch_uni_loss = np.array(epoch_uni_loss)
             print(epoch_eg_loss.mean(), epoch_eg_valid_loss.mean(), epoch_tv_loss.mean(), epoch_uni_loss.mean(), cp_path)
-            loss_tracker.append(epoch_eg_loss.mean(), epoch_eg_valid_loss.mean(), epoch_tv_loss.mean(), epoch_uni_loss.mean(), cp_path)
-            logging.info('[{h}:{m}[Epoch {e}] Train Loss: {t} Vlidation Loss: {v}'.format(h=now.hour, m=now.minute,
-                                                                                          e=epoch,
-                                                                                          t=loss_tracker.train_losses[
-                                                                                              -1],
-                                                                                          v=loss_tracker.valid_losses[
-                                                                                              -1]))
+            # loss_tracker.append(epoch_eg_loss.mean(), epoch_eg_valid_loss.mean(), epoch_tv_loss.mean(), epoch_uni_loss.mean(), cp_path)
+            loss_tracker.append_many(train=epoch_eg_loss.mean(), valid=epoch_eg_valid_loss.mean(), dz=epoch_uni_loss.mean(), reg=epoch_tv_loss.mean())
+            logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
         loss_tracker.plot()
 
     def to(self, device):

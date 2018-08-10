@@ -12,6 +12,7 @@ import torch
 import utils
 from torchvision.datasets.folder import pil_loader
 import gc
+import torch
 
 gc.collect()
 
@@ -80,7 +81,7 @@ if __name__ == '__main__':
         print("Results folder is {}".format(results_dest))
 
         net.teach(
-            utkface_path=args.input,
+            utkface_path=data_src,
             batch_size=args.batch_size,
             betas=(args.b1, args.b2),
             epochs=args.epochs,

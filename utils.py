@@ -36,6 +36,7 @@ pil_to_model_tensor_transform = transforms.Compose(
 
 
 def get_utkface_dataset(root):
+    print(root)
     ret = lambda: ImageFolder(os.path.join(root, 'labeled'), transform=pil_to_model_tensor_transform)
     try:
         return ret()
@@ -138,16 +139,16 @@ def default_test_results_dir(eval=True):
 
 
 class LossTracker(object):
-    def __init__(self, use_heuristics=False, eps=1e-3):
-        self.train_losses = []
-        self.valid_losses = []
-        self.tv_losses = []
-        self.uni_losses = []
+    def __init__(self, *names, **kwargs):
+
+        assert 'train' in names and 'valid' in names, str(names)
+        self.losses = {name: [] for name in names}
         self.paths = []
         self.epochs = 0
-        self.use_heuristics = use_heuristics
-        self.eps = abs(eps)
+        self.use_heuristics = kwargs.get('use_heuristics', False)
+        self.eps = abs(kwargs.get('eps', 1e-3))
 
+    # deprecated
     def append(self, train_loss, valid_loss, tv_loss, uni_loss, path):
         self.train_losses.append(train_loss)
         self.valid_losses.append(valid_loss)
@@ -174,18 +175,27 @@ class LossTracker(object):
             else:
                 pass  # saturation \ small fluctuations
 
-    def plot(self):
+    def append_single(self, name, value):
+        self.losses[name].append(value)
 
-        p0, = plt.plot(self.train_losses, label='Training')
-        p1, = plt.plot(self.valid_losses, label='Validation')
-        p2, = plt.plot(self.tv_losses, label='TotalVar')
-        p3, = plt.plot(self.uni_losses, label='Uniformity')
-        plt.legend(handles=[p0, p1, p2, p3])
+    def append_many(self, **names):
+        for name, value in names.items():
+            self.append_single(name, value)
+
+    def plot(self):
+        graphs = [plt.plot(loss, label=name)[0] for name, loss in self.losses.items()]
+        plt.legend(handles=graphs)
         plt.xlabel('Epochs')
         plt.ylabel('Averaged loss')
         plt.title('Losses by epoch')
         plt.grid(True)
         plt.show()
+
+    def __repr__(self):
+        ret = {}
+        for name, value in self.losses.items():
+            ret[name] = value[-1]
+        return str(ret)
 
 
 def get_list_of_labels(lst):

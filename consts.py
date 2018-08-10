@@ -22,9 +22,9 @@ UTKFACE_ORIGINAL_IMAGE_FORMAT = re.compile('^(\d+)_(\d+)_\d+_(\d+)\.jpg\.chip\.j
 
 NUM_GENDERS = 2
 UTKFACE_ORIGINAL_IMAGE_FORMAT = re.compile('^(\d+)_(\d+)_\d+_(\d+)\.jpg\.chip\.jpg$')
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 MALE = 0
 FEMALE = 1
 
 UTKFACE_DEFAULT_PATH = './data/UTKFace'
+utkface_path = UTKFACE_DEFAULT_PATH
