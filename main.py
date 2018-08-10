@@ -53,10 +53,7 @@ if __name__ == '__main__':
         '--input',
         '-i',
         default=None,
-        help='Training dataset path (default is {}) or testing image path'.format(
-            utils.default_train_results_dir(),
-            utils.default_test_results_dir()
-        )
+        help='Training dataset path (default is {}) or testing image path'.format(utils.default_train_results_dir())
     )
     parser.add_argument('--output', '-o', default='')
     args = parser.parse_args()
@@ -107,4 +104,3 @@ if __name__ == '__main__':
         else:
             img = img.cpu()
         net.test_single(img_tensor=img, age=args.age, gender=args.gender, target=results_dest)
-

@@ -267,11 +267,8 @@ class Net(object):
 
         torchvision.utils.save_image(joined_image, "./results/base.png")  # , nrow=8)
 
-        eg_optimizer, eg_criterion = optimizer_and_criterion(nn.L1Loss, Adam, self.E, self.G, weight_decay=weight_decay,
-                                                             betas=betas, lr=learning_rate)
-        # z_optimizer, z_criterion = optimizer_and_criterion(nn.BCEWithLogitsLoss, Adam, self.Dz,
-         #                                                  weight_decay=weight_decay, betas=betas, lr=learning_rate)
-
+        eg_optimizer, eg_criterion = optimizer_and_criterion(nn.L1Loss, Adam, self.E, self.G, weight_decay=weight_decay, betas=betas, lr=learning_rate)
+        dz_optimizer, dz_criterion = optimizer_and_criterion(nn.BCEWithLogitsLoss, Adam, self.Dz, weight_decay=weight_decay, betas=betas, lr=learning_rate)
 
         #  TODO - write a txt file with all arguments to results folder
 
@@ -305,39 +302,32 @@ class Net(object):
                 eg_loss = eg_criterion(generated, images).cpu()
                 epoch_eg_loss.append(eg_loss.item())
 
-                uni_loss = 0
-                for p in range(batch_size):  # TODO USE TORCH.HISTC TO KEEP GRADS !!!
-                    single_z = z[p, :].cpu().detach().numpy()
-                    single_z_histogram = np.histogram(single_z, bins=10, range=(-1, 1))[0]
-                    single_z_pvalue = stats.chisquare(single_z_histogram).pvalue
-                    uni_loss += (eg_criterion(torch.Tensor([single_z_pvalue]), torch.ones(1, requires_grad=False))) / batch_size
-
-                eg_loss += uni_loss
-                epoch_uni_loss.append(uni_loss.detach())
-                del uni_loss
-
-                reg_loss = (0.0001 * (
+                reg_loss = 0*0(
                         torch.sum(torch.abs(generated[:, :, :, :-1] - generated[:, :, :, 1:])) +
                         torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
                 ) / batch_size)  # TO DO - ADD TOTAL VARIANCE LOSS
 
-                loss += reg_loss
+                ####D_Z####
+                z_prior = 2 * torch.rand_like_(z) - 1  # [-1 : 1]
+                d_z_prior = self.Dz(z_prior.to(device=consts.device))
+                d_z = self.Dz(z)
 
 
+                dz_loss_prior = dz_criterion(d_z_prior, torch.ones_like(d_z_prior))
+                dz_loss = dz_criterion(d_z, torch.zeros_like(d_z))
+                ez_loss = dz_criterion(d_z, torch.ones_like(d_z))
+                dz_loss_tot = dz_loss + dz_loss_prior
+                loss = eg_loss + 0*reg_loss + 0.0001*ez_loss
 
-                # d_z = self.Dz(z)
-                # d_z_prior = self.Dz(z_prior)
+                dz_optimizer.zero_grad()
+                dz_loss_tot.backward(retain_graph=True)
+                dz_optimizer.step()
 
-
-
-                #d_z_loss = z_criterion(d_z, torch.zeros(d_z.shape, requires_grad=False, device=self.device)) + \
-                #           z_criterion(d_z_prior, torch.ones(d_z_prior.shape, requires_grad=False, device=self.device))
-
-                #z_optimizer.zero_grad()
-                loss = eg_loss # + d_z_loss  # + reg_loss
-                loss.backward(retain_graph=True)
+                eg_optimizer.zero_grad()
+                loss.backward()
                 eg_optimizer.step()
-                # z_optimizer.step()
+                #dz_loss = z_criterion(d_z_prior, d_z)
+
                 now = datetime.datetime.now()
                 epoch_tv_loss.append(reg_loss)
 
