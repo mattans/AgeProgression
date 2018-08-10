@@ -1,9 +1,11 @@
 import consts
 import os
+import threading
 
 from shutil import copyfile
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from collections import namedtuple
 
 import torch
@@ -11,6 +13,12 @@ import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
 import datetime
+from torchvision.utils import save_image
+
+
+def save_image_normalized(*args, **kwargs):
+    save_image(*args, **kwargs, normalize=True, range=(-1, 1))
+
 
 def merge(images, size):
     h, w = images.shape[2], images.shape[3]
@@ -24,6 +32,14 @@ def merge(images, size):
         img[2][j * h:j * h + h, i * w:i * w + w] = image[2]
 
     return img
+
+
+def two_sided(x):
+    return 2 * (x - 0.5)
+
+
+def one_sided(x):
+    return (x + 1) / 2
 
 
 pil_to_model_tensor_transform = transforms.Compose(
@@ -111,13 +127,6 @@ class Label(namedtuple('Label', ('age', 'gender'))):
         return str_to_tensor(self.to_str())
 
 
-def two_sided(x):
-    return 2 * (x - 0.5)
-
-
-def one_sided(x):
-    return (x + 1) / 2
-
 
 def optimizer_and_criterion(criter_class, optim_class, *modules, **optim_args):
     params = []
@@ -147,6 +156,8 @@ class LossTracker(object):
         self.epochs = 0
         self.use_heuristics = kwargs.get('use_heuristics', False)
         self.eps = abs(kwargs.get('eps', 1e-3))
+        plt.ion()
+        plt.show()
 
     # deprecated
     def append(self, train_loss, valid_loss, tv_loss, uni_loss, path):
@@ -182,13 +193,22 @@ class LossTracker(object):
         for name, value in names.items():
             self.append_single(name, value)
 
+    def append_many_and_plot(self, **names):
+        self.append_many(**names)
+
     def plot(self):
+        plt.clf()
         graphs = [plt.plot(loss, label=name)[0] for name, loss in self.losses.items()]
         plt.legend(handles=graphs)
         plt.xlabel('Epochs')
         plt.ylabel('Averaged loss')
         plt.title('Losses by epoch')
         plt.grid(True)
+        plt.draw()
+        plt.pause(0.001)
+
+    @staticmethod
+    def show():
         plt.show()
 
     def __repr__(self):

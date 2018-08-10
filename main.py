@@ -39,7 +39,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', default=1, type=int)
     parser.add_argument('--bs', '--batch-size', dest='batch_size', default=64, type=int)
     parser.add_argument('--wd', '--weight-decay', dest='weight_decay', default=1e-5, type=float)
-    parser.add_argument('--lr', '--learning-rate', dest='learning_rate', default=2e-4, type=float)
+    parser.add_argument('--lr', '--learning-rate', dest='lr', default=2e-4, type=float)
     parser.add_argument('--b1', '--beta1', dest='b1', default=0.9, type=float)
     parser.add_argument('--b2', '--beta2', dest='b2', default=0.999, type=float)
 
@@ -86,7 +86,7 @@ if __name__ == '__main__':
             betas=(args.b1, args.b2),
             epochs=args.epochs,
             weight_decay=args.weight_decay,
-            learning_rate=args.learning_rate,
+            lr=args.lr,
             name=results_dest,
         )
 
