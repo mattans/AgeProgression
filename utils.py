@@ -14,6 +14,7 @@ from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
 import datetime
 from torchvision.utils import save_image
+from collections import defaultdict
 
 
 def save_image_normalized(*args, **kwargs):
@@ -151,7 +152,7 @@ class LossTracker(object):
     def __init__(self, *names, **kwargs):
 
         assert 'train' in names and 'valid' in names, str(names)
-        self.losses = {name: [] for name in names}
+        self.losses = defaultdict(lambda: [])
         self.paths = []
         self.epochs = 0
         self.use_heuristics = kwargs.get('use_heuristics', False)
