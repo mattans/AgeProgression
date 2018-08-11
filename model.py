@@ -285,11 +285,6 @@ class Net(object):
                 if(i%50 == 0):
                     print ("DEBUG: iteration: "+str(i)+" images shape: "+str(images.shape))
                 z = self.E(images)
-
-
-
-
-
                 # if(z.shape != z_prior.shape):
                 #     z_prior = 2 * torch.rand(z.shape[0], consts.NUM_Z_CHANNELS) - 1
                 #     d_z_prior = self.Dz(z_prior.to(device=consts.device))
@@ -335,7 +330,8 @@ class Net(object):
                     # joined_image = one_sided(torch.cat((images, generated), 0))
                     # save_image(joined_image, os.path.join(cp_path, 'reconstruct.png'))
                 save_count += 1
-
+            save_count = 0
+            cp_path = self.save(name)
             with torch.no_grad():  # validation
 
                 self.eval()  # move to eval mode
