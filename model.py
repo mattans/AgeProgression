@@ -8,6 +8,8 @@ from torchvision import datasets
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.functional import l1_loss
+from torch.nn.functional import binary_cross_entropy_with_logits as bce_with_logits_loss
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 import datetime
@@ -68,20 +70,23 @@ class DiscriminatorZ(nn.Module):
         dims = (consts.NUM_Z_CHANNELS, consts.NUM_ENCODER_CHANNELS, consts.NUM_ENCODER_CHANNELS // 2,
                 consts.NUM_ENCODER_CHANNELS // 4)
         self.layers = nn.ModuleList()
-        i = 0
         for i, (in_dim, out_dim) in enumerate(zip(dims[:-1], dims[1:]), 1):
-            self.layers.add_module('dz_fc_%d' % i, nn.Sequential(
-                nn.Linear(in_dim, out_dim),
-                nn.BatchNorm1d(out_dim),
-                nn.ReLU()
+            self.layers.add_module(
+                'dz_fc_%d' % i,
+                nn.Sequential(
+                    nn.Linear(in_dim, out_dim),
+                    nn.BatchNorm1d(out_dim),
+                    nn.ReLU()
+                )
             )
-                                   )
 
-        self.layers.add_module('dz_fc_%d' % (i + 1), nn.Sequential(
-            nn.Linear(out_dim, 1),
-            nn.Sigmoid()
+        self.layers.add_module(
+            'dz_fc_%d' % (i + 1),
+            nn.Sequential(
+                nn.Linear(out_dim, 1),
+                # nn.Sigmoid()  # commented out because logits are needed
+            )
         )
-                               )
 
     def forward(self, z):
         out = z
@@ -96,10 +101,10 @@ class DiscriminatorImg(nn.Module):
         dims = (3, 16, 32, 64, 128)
         self.conv_layers = nn.ModuleList()
         for i, (in_dim, out_dim) in enumerate(zip(dims[:-1], dims[1:]), 1):
-            self.layers.add_module(
+            self.conv_layers.add_module(
                 'dimg_conv_%d' % i,
                 nn.Sequential(
-                    nn.Conv2d(in_dim, out_dim),
+                    nn.Conv2d(in_dim, out_dim, kernel_size=2, stride=2),
                     nn.BatchNorm1d(out_dim),
                     nn.ReLU()
                 )
@@ -112,7 +117,7 @@ class DiscriminatorImg(nn.Module):
 
         self.fc_2 = nn.Sequential(
             nn.Linear(1024, 1),
-            # nn.Sigmoid()
+            # nn.Sigmoid()  # commented out because logits are needed
         )
 
     def forward(self, img, label):
@@ -171,10 +176,12 @@ class Net(object):
     def __init__(self):
         self.E = Encoder()
         self.Dz = DiscriminatorZ()
+        self.Dimg = DiscriminatorImg()
         self.G = Generator()
 
         self.eg_optimizer = Adam(list(self.E.parameters()) + list(self.G.parameters()))
         self.dz_optimizer = Adam(self.Dz.parameters())
+        self.di_optimizer = Adam(self.Dimg.parameters())
 
         self.device = None
         if torch.cuda.is_available():
@@ -191,7 +198,6 @@ class Net(object):
         return os.linesep.join([repr(subnet) for subnet in (self.E, self.Dz, self.G)])
 
     def test_single(self, img_tensor, age, gender, target):
-        # TODO - add the age caption on the original image
 
         self.eval()
         batch = img_tensor.repeat(consts.NUM_AGES, 1, 1, 1)  # N x D x H x W
@@ -220,7 +226,7 @@ class Net(object):
         font = cv2.FONT_HERSHEY_SIMPLEX
         bottomLeftCornerOfText = (2, 25)
         fontScale = 0.5
-        fontColor = (0, 128, 0)
+        fontColor = (0, 128, 0)  # dark green, should be visible on most skin colors
         lineType = 2
         cv2.putText(
             img_tensor,
@@ -278,7 +284,7 @@ class Net(object):
 
         save_image_normalized(tensor=validate_images, filename="./results/base.png")
 
-        for optimizer in (self.eg_optimizer, self.dz_optimizer):
+        for optimizer in (self.eg_optimizer, self.dz_optimizer, self.di_optimizer):
             for param in ('weight_decay', 'betas', 'lr'):
                 optimizer.param_groups[0][param] = locals()[param]
 
@@ -307,14 +313,14 @@ class Net(object):
 
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)
-                eg_loss = F.l1_loss(generated, images)
+                eg_loss = l1_loss(generated, images)
                 epoch_eg_loss.append(eg_loss.item())
 
                 reg = (
                         torch.sum(torch.abs(generated[:, :, :, :-1] - generated[:, :, :, 1:])) +
                         torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
                 ) / batch_size
-                reg_loss = 0.000 * F.l1_loss(reg, torch.zeros_like(reg))
+                reg_loss = 0.000 * l1_loss(reg, torch.zeros_like(reg))
                 reg_loss.to(self.device)
                 epoch_tv_loss.append(reg_loss.item())
 
@@ -322,14 +328,19 @@ class Net(object):
                 z_prior = two_sided(torch.rand_like(z))  # [-1 : 1]
                 d_z_prior = self.Dz(z_prior.to(device=self.device))
                 d_z = self.Dz(z)
-
-
-                dz_loss_prior = F.binary_cross_entropy_with_logits(d_z_prior, torch.ones_like(d_z_prior))
-                dz_loss = F.binary_cross_entropy_with_logits(d_z, torch.zeros_like(d_z))
-                ez_loss = 0.0001 * F.binary_cross_entropy_with_logits(d_z, torch.ones_like(d_z))
+                dz_loss_prior = bce_with_logits_loss(d_z_prior, torch.ones_like(d_z_prior))
+                dz_loss = bce_with_logits_loss(d_z, torch.zeros_like(d_z))
+                ez_loss = 0.0001 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
                 ez_loss.to(self.device)
                 dz_loss_tot = 0.1 * (dz_loss + dz_loss_prior)
                 epoch_uni_loss.append(dz_loss_tot.item())
+
+
+                ####D_I####
+                d_i_input = self.Dimg(images)
+                d_i_output = self.Dimg(generated)
+                #  TODO - calculate loss with zeros, ones etc...
+
 
                 self.eg_optimizer.zero_grad()
                 loss = eg_loss + reg_loss + ez_loss
@@ -348,6 +359,8 @@ class Net(object):
                                                                                 t=loss.item()))
                     print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
                     cp_path = self.save(name)
+                    loss_tracker.save(os.path.join(cp_path, 'losses.png'))
+
                 save_count += 1
 
             with torch.no_grad():  # validation
@@ -357,22 +370,22 @@ class Net(object):
                 z = self.E(validate_images)
                 z_l = torch.cat((z, validate_labels), 1)
                 generated = self.G(z_l)
-                loss = F.l1_loss(validate_images, generated)
-                joined_image = one_sided(generated)
-                save_image_normalized(tensor=joined_image, filename='results/onesided_' + str(epoch) + '.png', nrow=8)
+                loss = l1_loss(validate_images, generated)
+                save_image_normalized(tensor=generated, filename='results/onesided_' + str(epoch) + '.png', nrow=8)
                 epoch_eg_valid_loss.append(loss.item())
 
-            epoch_eg_loss = np.array(epoch_eg_loss)
-            epoch_eg_valid_loss = np.array(epoch_eg_valid_loss)
-            epoch_tv_loss = np.array(epoch_tv_loss)
-            epoch_uni_loss = np.array(epoch_uni_loss)
-            print(epoch_eg_loss.mean(), epoch_eg_valid_loss.mean(), epoch_tv_loss.mean(), epoch_uni_loss.mean(), cp_path)
-            loss_tracker.append_many(train=epoch_eg_loss.mean(), valid=epoch_eg_valid_loss.mean(), dz=epoch_uni_loss.mean(), reg=epoch_tv_loss.mean())
+            print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)
+            loss_tracker.append_many(train=mean(epoch_eg_loss), valid=mean(epoch_eg_valid_loss), dz=mean(epoch_uni_loss), reg=mean(epoch_tv_loss))
             loss_tracker.plot()
             logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
         loss_tracker.plot()
 
     def _mass_fn(self, fn_name, *args, **kwargs):
+        """Apply a function to all possible Net's components.
+
+        :return:
+        """
+
         for class_attr in dir(self):
             if not class_attr.startswith('_'):  # ignore private members, for example self.__class__
                 class_attr = getattr(self, class_attr)
@@ -392,12 +405,24 @@ class Net(object):
         self.device = torch.device('cuda')
 
     def eval(self):
+        """Move Net to evaluation mode.
+
+        :return:
+        """
         self._mass_fn('eval')
 
     def train(self):
+        """Move Net to training mode.
+
+        :return:
+        """
         self._mass_fn('train')
 
     def save(self, path):
+        """Save all state dicts of Net's components.
+
+        :return:
+        """
         if not os.path.isdir(path):
             os.mkdir(path)
         path = os.path.join(path, datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
@@ -409,18 +434,21 @@ class Net(object):
                 class_attr = getattr(self, class_attr_name)
                 if hasattr(class_attr, 'state_dict'):
                     state_dict = getattr(class_attr, 'state_dict')
-                    torch.save(state_dict, os.path.join(path, "{}.dat".format(class_attr_name)))
+                    fname = os.path.join(path, consts.TRAINED_MODEL_FORMAT.format(class_attr_name))
+                    torch.save(state_dict, fname)
+                    print("Saved {}".format(fname))
 
-        print("Saved to " + path)
         return path
 
     def load(self, path):
+        """Load all state dicts of Net's components.
 
+        :return:
+        """
         for class_attr_name in dir(self):
             if not class_attr_name.startswith('_'):
                 class_attr = getattr(self, class_attr_name)
-                if hasattr(class_attr, 'load_state_dict'):
-                    load_state_dict = getattr(class_attr, 'load_state_dict')
-                    load_state_dict(torch.load(os.path.join(path, "{}.dat".format(class_attr_name)))())
-
-        print("Loaded from " + path)
+                fname = os.path.join(path, consts.TRAINED_MODEL_FORMAT.format(class_attr_name))
+                if hasattr(class_attr, 'load_state_dict') and os.path.exists(fname):
+                    class_attr.load_state_dict(torch.load(fname)())
+                    print("Loaded {}".format(fname))

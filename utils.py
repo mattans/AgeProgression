@@ -211,6 +211,10 @@ class LossTracker(object):
     def show():
         plt.show()
 
+    @staticmethod
+    def save(path):
+        plt.savefig(path, transparent=True)
+
     def __repr__(self):
         ret = {}
         for name, value in self.losses.items():
@@ -243,3 +247,6 @@ def get_list_of_labels(lst):
             new_list.append(9)
         return new_list
 
+
+def mean(l):
+    return np.array(l).mean()
