@@ -12,6 +12,7 @@ import torch
 import utils
 from torchvision.datasets.folder import pil_loader
 import gc
+import torch
 
 gc.collect()
 
@@ -29,9 +30,6 @@ def str_to_gender(s):
     else:
         raise Exception()
 
-if 'net' not in globals() and False:  # for interactive execution in PyCharm
-    net = model.Net()
-    net.to(device=consts.device)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='AgeProgression on PyTorch.')
@@ -41,7 +39,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', default=1, type=int)
     parser.add_argument('--bs', '--batch-size', dest='batch_size', default=64, type=int)
     parser.add_argument('--wd', '--weight-decay', dest='weight_decay', default=1e-5, type=float)
-    parser.add_argument('--lr', '--learning-rate', dest='learning_rate', default=2e-4, type=float)
+    parser.add_argument('--lr', '--learning-rate', dest='lr', default=2e-4, type=float)
     parser.add_argument('--b1', '--beta1', dest='b1', default=0.9, type=float)
     parser.add_argument('--b2', '--beta2', dest='b2', default=0.999, type=float)
 
@@ -50,12 +48,15 @@ if __name__ == '__main__':
     parser.add_argument('--gender', required=False, type=str_to_gender)
 
     # shared params
-    parser.add_argument('--cuda', default=True, type=bool)
-    parser.add_argument('--load', required=False, default=None)  # for pre-training or testing
-    parser.add_argument('--input', '-i', dest='input', help='Training dataset path or testing image path')
-    parser.add_argument('--output', '-o', dest='output', default='')  # for checkpoints or test results
-
-
+    parser.add_argument('--cpu', action='store_true')
+    parser.add_argument('--load', required=False, default=None, help='Trained models path for pre-training or for testing')
+    parser.add_argument(
+        '--input',
+        '-i',
+        default=None,
+        help='Training dataset path (default is {}) or testing image path'.format(utils.default_train_results_dir())
+    )
+    parser.add_argument('--output', '-o', default='')
     args = parser.parse_args()
 
     try:
@@ -65,25 +66,27 @@ if __name__ == '__main__':
     logging.basicConfig(filename=r'results/log_results.log', level=logging.DEBUG)
 
     net = model.Net()
-    if args.cuda:
-        net.cuda()
-    else:
+    if args.cpu:  # force usage of cpu even if cuda is available (can be faster for testing)
         net.cpu()
 
     if args.mode == 'train':
 
         if args.load is not None:
             net.load(args.load)
+            print("Loading pre-trained models from {}".format(args.load))
 
+        data_src = args.input or os.path.join('.', 'data', 'UTKFace')
+        print("Data folder is {}".format(data_src))
         results_dest = args.output or utils.default_train_results_dir()
+        print("Results folder is {}".format(results_dest))
 
         net.teach(
-            utkface_path=args.input,
+            utkface_path=data_src,
             batch_size=args.batch_size,
             betas=(args.b1, args.b2),
             epochs=args.epochs,
             weight_decay=args.weight_decay,
-            learning_rate=args.learning_rate,
+            lr=args.lr,
             name=results_dest,
         )
 
@@ -97,9 +100,8 @@ if __name__ == '__main__':
         results_dest = args.output or utils.default_test_results_dir()
 
         img = utils.pil_to_model_tensor_transform(pil_loader(args.input))
-        if args.cuda:
+        if not args.cpu and torch.cuda.is_available():
             img = img.cuda()
         else:
             img = img.cpu()
         net.test_single(img_tensor=img, age=args.age, gender=args.gender, target=results_dest)
-
