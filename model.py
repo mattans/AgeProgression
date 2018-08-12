@@ -98,7 +98,7 @@ class DiscriminatorImg(nn.Module):
         self.conv_layers = nn.ModuleList()
         self.fc_layers = nn.ModuleList()
         for i, (in_dim, out_dim) in enumerate(zip(in_dims[:-1], out_dims[1:]), 1):
-            self.layers.add_module(
+            self.conv_layers.add_module(
                 'dimg_conv_%d' % i,
                 nn.Sequential(
                     nn.Conv2d(in_dim, out_dim, kernel_size=2, stride=2),
