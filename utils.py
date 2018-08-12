@@ -21,6 +21,7 @@ def save_image_normalized(*args, **kwargs):
     save_image(*args, **kwargs, normalize=True, range=(-1, 1))
 
 
+
 def merge(images, size):
     h, w = images.shape[2], images.shape[3]
     img = np.zeros((3, h * size[0], w * size[1]))
@@ -251,3 +252,10 @@ def get_list_of_labels(lst):
 
 def mean(l):
     return np.array(l).mean()
+
+from sklearn.metrics.regression import mean_squared_error as mse
+def uni_loss(input):
+    assert len(input.shape) == 2
+    hist = torch.histc(input=input, bins=input.size(1), min=-1, max=1)
+    bin_avg_value = input.size(0)
+    return mse(hist, bin_avg_value * torch.ones_like(hist)) / input.size(1)

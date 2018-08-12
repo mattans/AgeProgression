@@ -358,8 +358,11 @@ class Net(object):
                 dz_loss_tot = 0.1 * (dz_loss + dz_loss_prior)
                 losses['dz'].append(dz_loss_tot.item())
 
+
+
+
                 # Encoder\DiscriminatorZ Loss
-                ez_loss = 0.0001 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
+                ez_loss = 0.001 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
                 ez_loss.to(self.device)
                 losses['ez'].append(ez_loss.item())
 
@@ -373,8 +376,11 @@ class Net(object):
                 losses['di'].append(di_loss_tot.item())
 
                 # Generator\DiscriminatorImg Loss
-                dg_loss = bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
+                dg_loss = 0.001 * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
                 losses['dg'].append(dg_loss.item())
+
+                losses['uni_diff'] = uni_loss(z.cpu().detach()) - uni_loss(z_prior.cpu().detach())
+
 
                 # Start back propagation
 
@@ -472,6 +478,7 @@ class Net(object):
         if not os.path.isdir(path):
             os.mkdir(path)
 
+        saved = []
         for class_attr_name in dir(self):
             if not class_attr_name.startswith('_'):
                 class_attr = getattr(self, class_attr_name)
@@ -479,8 +486,9 @@ class Net(object):
                     state_dict = getattr(class_attr, 'state_dict')
                     fname = os.path.join(path, consts.TRAINED_MODEL_FORMAT.format(class_attr_name))
                     torch.save(state_dict, fname)
-                    print("Saved {}".format(fname))
+                    saved.append(class_attr_name)
 
+        print("Saved {} to {}".format(saved, path))
         return path
 
     def load(self, path):
@@ -488,10 +496,12 @@ class Net(object):
 
         :return:
         """
+        loaded = []
         for class_attr_name in dir(self):
             if not class_attr_name.startswith('_'):
                 class_attr = getattr(self, class_attr_name)
                 fname = os.path.join(path, consts.TRAINED_MODEL_FORMAT.format(class_attr_name))
                 if hasattr(class_attr, 'load_state_dict') and os.path.exists(fname):
                     class_attr.load_state_dict(torch.load(fname)())
-                    print("Loaded {}".format(fname))
+                    loaded.append(class_attr_name)
+        print("Loaded {} from {}".format(loaded, path))
