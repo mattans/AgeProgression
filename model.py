@@ -192,7 +192,7 @@ class Net(object):
         self.DImg = DiscriminatorImg()
         self.eg_optimizer = Adam(list(self.E.parameters()) + list(self.G.parameters()))
         self.dz_optimizer = Adam(self.Dz.parameters())
-        self.im_optimizer = Adam(self.DImgh.parameters())
+        self.im_optimizer = Adam(self.DImg.parameters())
         self.device = None
         if torch.cuda.is_available():
             self.cuda()
