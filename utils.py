@@ -135,17 +135,23 @@ def default_test_results_dir():
 
 
 class LossTracker(object):
-    def __init__(self, use_heuristics=False, eps=1e-3):
-        self.train_losses = []
-        self.valid_losses = []
+    def __init__(self, *names, **kwargs):
+
+        assert 'train' in names and 'valid' in names, str(names)
+        self.losses = defaultdict(lambda: [])
         self.paths = []
         self.epochs = 0
-        self.use_heuristics = use_heuristics
-        self.eps = abs(eps)
+        self.use_heuristics = kwargs.get('use_heuristics', False)
+        self.eps = abs(kwargs.get('eps', 1e-3))
+        plt.ion()
+        plt.show()
 
-    def append(self, train_loss, valid_loss, path):
+    # deprecated
+    def append(self, train_loss, valid_loss, tv_loss, uni_loss, path):
         self.train_losses.append(train_loss)
         self.valid_losses.append(valid_loss)
+        self.tv_losses.append(tv_loss)
+        self.uni_losses.append(uni_loss)
         self.paths.append(path)
         self.epochs += 1
         if self.use_heuristics and self.epochs >= 2:
@@ -167,16 +173,40 @@ class LossTracker(object):
             else:
                 pass  # saturation \ small fluctuations
 
-    def plot(self):
+    def append_single(self, name, value):
+        self.losses[name].append(value)
 
-        t_loss, = plt.plot(self.train_losses, label='Training loss')
-        v_loss, = plt.plot(self.valid_losses, label='Validation loss')
-        plt.legend(handles=[t_loss, v_loss])
+    def append_many(self, **names):
+        for name, value in names.items():
+            self.append_single(name, value)
+
+    def append_many_and_plot(self, **names):
+        self.append_many(**names)
+
+    def plot(self):
+        plt.clf()
+        graphs = [plt.plot(loss, label=name)[0] for name, loss in self.losses.items()]
+        plt.legend(handles=graphs)
         plt.xlabel('Epochs')
         plt.ylabel('Averaged loss')
-        plt.title('Training and validation losses by epoch')
+        plt.title('Losses by epoch')
         plt.grid(True)
+        plt.draw()
+        plt.pause(0.001)
+
+    @staticmethod
+    def show():
         plt.show()
+
+    @staticmethod
+    def save(path):
+        plt.savefig(path, transparent=True)
+
+    def __repr__(self):
+        ret = {}
+        for name, value in self.losses.items():
+            ret[name] = value[-1]
+        return str(ret)
 
 
 def get_list_of_labels(lst):
@@ -204,3 +234,13 @@ def get_list_of_labels(lst):
             new_list.append(9)
         return new_list
 
+
+def mean(l):
+    return np.array(l).mean()
+
+from sklearn.metrics.regression import mean_squared_error as mse
+def uni_loss(input):
+    assert len(input.shape) == 2
+    hist = torch.histc(input=input, bins=input.size(1), min=-1, max=1)
+    bin_avg_value = input.size(0)
+    return mse(hist, bin_avg_value * torch.ones_like(hist)) / input.size(1)
