@@ -341,8 +341,8 @@ class Net(object):
                 d_z = self.Dz(z)
 
                 ###D_IMG###
-                d_img_input = self.DImg(images, labels)
-                d_img = self.DImg(generated, labels)
+                d_img_input = self.DImg(images, labels, self.device)
+                d_img = self.DImg(generated, labels, self.device)
                 d_img_loss_input = F.binary_cross_entropy_with_logits(d_img_input, torch.ones_like(d_img_input))
                 d_img_loss_G = F.binary_cross_entropy_with_logits(d_img, torch.zeros_like(d_img))
                 g_img_loss = 0.0001 * F.binary_cross_entropy_with_logits(d_img, torch.ones_like(d_img))
