@@ -254,7 +254,7 @@ class Net(object):
 
         joined = torch.cat((img_tensor.unsqueeze(0), generated), 0)
 
-        save_image_normalized(tensor=joined, filename=os.path.join(target, 'menifa.png'), nrow=joined.size(0))
+        torchvision.utils.save_image(tensor=joined, filename=os.path.join(target, 'menifa.png'), nrow=joined.size(0), normalize=True, range=(-1, 1))
 
     def teach(
             self,
@@ -293,7 +293,7 @@ class Net(object):
                 [str_to_tensor(idx_to_class[l]).to(device=self.device) for l in list(labels.numpy())])
             validate_labels = labels.to(device=self.device)
 
-        save_image_normalized(tensor=validate_images, filename="./results/base.png")
+        torchvision.utils.save_image(tensor=validate_images, filename="./results/base.png", normalize=True, range=(-1, 1))
 
         for optimizer in (self.eg_optimizer, self.dz_optimizer, self.im_ptimizer):
             for param in ('weight_decay', 'betas', 'lr'):
@@ -388,7 +388,7 @@ class Net(object):
                 generated = self.G(z_l)
                 loss = F.l1_loss(validate_images, generated)
                 joined_image = one_sided(generated)
-                save_image_normalized(tensor=joined_image, filename='results/onesided_' + str(epoch) + '.png', nrow=8)
+                torchvision.utils.save_image(tensor=joined_image, filename='results/onesided_' + str(epoch) + '.png', nrow=8, normalize=True, range=(-1, 1))
                 epoch_eg_valid_loss.append(loss.item())
 
             epoch_eg_loss = np.array(epoch_eg_loss)
