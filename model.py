@@ -131,7 +131,7 @@ class DiscriminatorImg(nn.Module):
                 for img_idx in range(out.size(0)):
                     for label in range(labels.size(1)):
                         labels_tensor[img_idx, label, :, :] = labels[img_idx, label]
-                out = torch.cat((out, labels_tensor), consts.NUM_GENDERS/2)
+                out = torch.cat((out, labels_tensor), consts.NUM_GENDERS//2)
 
         # run fcs
         out = self._compress(out)
