@@ -11,6 +11,7 @@ import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
 import datetime
+from collections import defaultdict
 
 def merge(images, size):
     h, w = images.shape[2], images.shape[3]

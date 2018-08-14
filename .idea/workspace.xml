@@ -98,8 +98,11 @@
       <file leaf-file-name="utils.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/utils.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="520">
-              <caret line="245" column="75" selection-start-line="245" selection-start-column="75" selection-end-line="245" selection-end-column="75" />
+            <state relative-caret-position="34">
+              <caret line="14" lean-forward="true" selection-start-line="14" selection-end-line="14" />
+              <folding>
+                <element signature="e#0#13#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -313,6 +316,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1921">
           <caret line="123" column="50" lean-forward="true" selection-start-line="123" selection-start-column="50" selection-end-line="123" selection-end-column="50" />
+          <folding>
+            <element signature="e#0#13#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -455,8 +461,11 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/utils.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="520">
-          <caret line="245" column="75" selection-start-line="245" selection-start-column="75" selection-end-line="245" selection-end-column="75" />
+        <state relative-caret-position="34">
+          <caret line="14" lean-forward="true" selection-start-line="14" selection-end-line="14" />
+          <folding>
+            <element signature="e#0#13#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
