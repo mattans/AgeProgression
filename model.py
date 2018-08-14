@@ -295,7 +295,7 @@ class Net(object):
 
         torchvision.utils.save_image(tensor=validate_images, filename="./results/base.png", normalize=True, range=(-1, 1))
 
-        for optimizer in (self.eg_optimizer, self.dz_optimizer, self.im_ptimizer):
+        for optimizer in (self.eg_optimizer, self.dz_optimizer, self.im_optimizer):
             for param in ('weight_decay', 'betas', 'lr'):
                 optimizer.param_groups[0][param] = locals()[param]
 
