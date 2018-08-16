@@ -8,7 +8,7 @@ from torchvision import datasets
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.functional import l1_loss
+from torch.nn.functional import l1_loss, mse_loss
 from torch.nn.functional import binary_cross_entropy_with_logits as bce_with_logits_loss
 from torch.utils.data import DataLoader
 from torch.optim import Adam
@@ -27,26 +27,34 @@ class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
 
-        num_conv_layers = 5
+        num_conv_layers = 6
 
         self.conv_layers = nn.ModuleList()
 
-        for i in range(1, num_conv_layers + 1):
-            input_layer = i == 1
-            self.conv_layers.add_module('e_conv_%d' % i, nn.Sequential(
-                nn.Conv2d(
-                    in_channels=(consts.NUM_ENCODER_CHANNELS * 2 ** (i - 2)) if not input_layer else int(consts.IMAGE_DEPTH),
-                    out_channels=consts.NUM_ENCODER_CHANNELS * 2 ** (i - 1),
-                    kernel_size=2,
-                    stride=2,
-                ),
-                nn.ReLU()
-            ))
+        def add_conv(module_list, name, in_ch, out_ch, kernel, stride, act_fn):
+            return module_list.add_module(
+                name,
+                nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=in_ch,
+                        out_channels=out_ch,
+                        kernel_size=kernel,
+                        stride=stride,
+                    ),
+                    act_fn
+                )
+            )
+
+        add_conv(self.conv_layers, 'e_conv_1', in_ch=3, out_ch=64, kernel=2, stride=2, act_fn=nn.ReLU())
+        add_conv(self.conv_layers, 'e_conv_2', in_ch=64, out_ch=128, kernel=2, stride=2, act_fn=nn.ReLU())
+        add_conv(self.conv_layers, 'e_conv_3', in_ch=128, out_ch=256, kernel=2, stride=2, act_fn=nn.ReLU())
+        add_conv(self.conv_layers, 'e_conv_4', in_ch=256, out_ch=512, kernel=2, stride=2, act_fn=nn.ReLU())
+        add_conv(self.conv_layers, 'e_conv_5', in_ch=512, out_ch=1024, kernel=2, stride=2, act_fn=nn.ReLU())
+
 
         self.fc_layer = nn.Sequential(OrderedDict([
             ('e_fc_1', nn.Linear(
-                in_features=consts.NUM_ENCODER_CHANNELS * int(consts.IMAGE_LENGTH ** 2) // int(
-                    2 ** (num_conv_layers + 1)),
+                in_features=1024*4*4,
                 out_features=consts.NUM_Z_CHANNELS
             )),
             ('tanh_1', nn.Tanh())  # normalize to [-1, 1] range
@@ -58,7 +66,10 @@ class Encoder(nn.Module):
     def forward(self, face):
         out = face
         for conv_layer in self.conv_layers:
+            #print("H")
             out = conv_layer(out)
+            #print(out.shape)
+            #print("W")
         out = self._compress(out)
         out = self.fc_layer(out)
         return out
@@ -128,9 +139,6 @@ class DiscriminatorImg(nn.Module):
             )
         )
 
-    def _compress(self, x):
-        return x.view(x.size(0), -1)
-
     def forward(self, imgs, labels, device):
         out = imgs
 
@@ -148,7 +156,7 @@ class DiscriminatorImg(nn.Module):
                 out = torch.cat((out, labels_tensor), 1)
 
         # run fcs
-        out = self._compress(out)
+        out = out.flatten(-1, 1)
         for fc_layer in self.fc_layers:
             # print(out.shape)
             # print(fc_layer)
@@ -172,17 +180,26 @@ class Generator(nn.Module):
 
         self.deconv_layers = nn.ModuleList()
 
-        for i in range(1, num_deconv_layers + 1):
-            output_layer = i == num_deconv_layers
-            self.deconv_layers.add_module('g_deconv_%d' % i, nn.Sequential(*[
-                nn.ConvTranspose2d(
-                    in_channels=int(consts.NUM_GEN_CHANNELS // (2 ** (i - 1))),
-                    out_channels=int(consts.NUM_GEN_CHANNELS // (2 ** i)) if not output_layer else 3,
-                    kernel_size=2 if not output_layer else 1,
-                    stride=2 if not output_layer else 1,
-                ),
-                nn.ReLU() if not output_layer else nn.Tanh()
-            ]))
+        def add_deconv(module_list, name, in_ch, out_ch, kernel, stride, act_fn):
+            return module_list.add_module(
+                name,
+                nn.Sequential(
+                    nn.ConvTranspose2d(
+                        in_channels=in_ch,
+                        out_channels=out_ch,
+                        kernel_size=kernel,
+                        stride=stride,
+                    ),
+                    act_fn
+                )
+            )
+
+        add_deconv(self.deconv_layers, 'g_deconv_1', in_ch=1024, out_ch=1024, kernel=2, stride=2, act_fn=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_2', in_ch=1024, out_ch=512, kernel=2, stride=2, act_fn=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_3', in_ch=512, out_ch=256, kernel=2, stride=2, act_fn=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_4', in_ch=256, out_ch=128, kernel=2, stride=2, act_fn=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_5', in_ch=128, out_ch=3, kernel=1, stride=1, act_fn=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_6', in_ch=3, out_ch=3, kernel=1, stride=1, act_fn=nn.Tanh())
 
     def _decompress(self, x):
         return x.view(x.size(0), 1024, 8, 8)  # TODO - replace hardcoded
@@ -194,10 +211,12 @@ class Generator(nn.Module):
                 if (isinstance(age, int) and isinstance(gender, int)) \
                 else torch.cat((age, gender), 1)
             out = torch.cat((out, label), 1)  # z_l
+        #print(out.shape)
         out = self.fc(out)
         out = self._decompress(out)
         for i, deconv_layer in enumerate(self.deconv_layers, 1):
-                out = deconv_layer(out)
+            out = deconv_layer(out)
+            #print(out.shape)
         return out
 
 
@@ -337,7 +356,7 @@ class Net(object):
                 # Input\Output Loss
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)
-                eg_loss = l1_loss(generated, images)
+                eg_loss = mse_loss(generated, images)
                 losses['eg'].append(eg_loss.item())
 
                 # Total Variance Regularization Loss
@@ -355,7 +374,7 @@ class Net(object):
                 d_z = self.Dz(z)
                 dz_loss_prior = bce_with_logits_loss(d_z_prior, torch.ones_like(d_z_prior))
                 dz_loss = bce_with_logits_loss(d_z, torch.zeros_like(d_z))
-                dz_loss_tot = 0.1 * (dz_loss + dz_loss_prior)
+                dz_loss_tot = (dz_loss + dz_loss_prior)
                 losses['dz'].append(dz_loss_tot.item())
 
 
@@ -483,12 +502,12 @@ class Net(object):
             if not class_attr_name.startswith('_'):
                 class_attr = getattr(self, class_attr_name)
                 if hasattr(class_attr, 'state_dict'):
-                    state_dict = getattr(class_attr, 'state_dict')
+                    state_dict = class_attr.state_dict
                     fname = os.path.join(path, consts.TRAINED_MODEL_FORMAT.format(class_attr_name))
                     torch.save(state_dict, fname)
                     saved.append(class_attr_name)
 
-        print("Saved {} to {}".format(saved, path))
+        print("Saved {} to {}".format(', '.join(saved), path))
         return path
 
     def load(self, path):
@@ -504,4 +523,4 @@ class Net(object):
                 if hasattr(class_attr, 'load_state_dict') and os.path.exists(fname):
                     class_attr.load_state_dict(torch.load(fname)())
                     loaded.append(class_attr_name)
-        print("Loaded {} from {}".format(loaded, path))
+        print("Loaded {} from {}".format(', '.join(loaded), path))
