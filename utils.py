@@ -154,8 +154,6 @@ def default_test_results_dir(eval=True):
 
 class LossTracker(object):
     def __init__(self, *names, **kwargs):
-        print("namesLLLLLL     "+ str(names))
-        print("kwargs        "+ str(kwargs))
         assert 'train' in names and 'valid' in names, str(names)
         self.losses = defaultdict(lambda: [])
         self.paths = []
@@ -164,6 +162,7 @@ class LossTracker(object):
         self.eps = abs(kwargs.get('eps', 1e-3))
         plt.ion()
         if(names[-1] == True):
+            print("names[-1] - "+names[-1])
             plt.show()
 
     # deprecated
@@ -204,6 +203,7 @@ class LossTracker(object):
         self.append_many(**names)
 
     def plot(self):
+        print("in plot")
         plt.clf()
         graphs = [plt.plot(loss, label=name)[0] for name, loss in self.losses.items()]
         plt.legend(handles=graphs)
@@ -216,6 +216,7 @@ class LossTracker(object):
 
     @staticmethod
     def show():
+        print("in show")
         plt.show()
 
     @staticmethod

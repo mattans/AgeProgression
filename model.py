@@ -305,7 +305,6 @@ class Net(object):
             name=default_train_results_dir(),
             valid_size=None,
     ):
-        print(should_plot)
         where_to_save = default_where_to_save()
         if not os.path.exists(where_to_save):
             os.makedirs(where_to_save)
