@@ -452,12 +452,11 @@ class Net(object):
 
             # print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)
             loss_tracker.append_many(**{k: mean(v) for k, v in losses.items()})
-            if (should_plot == True):
-                loss_tracker.plot()
+            loss_tracker.plot()
 
             logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
-        if (should_plot == True):
-            loss_tracker.plot()
+
+        loss_tracker.plot()
 
     def _mass_fn(self, fn_name, *args, **kwargs):
         """Apply a function to all possible Net's components.

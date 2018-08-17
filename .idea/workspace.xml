@@ -16,8 +16,8 @@
       <file leaf-file-name="model.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/model.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="168">
-              <caret line="344" column="32" selection-start-line="344" selection-start-column="32" selection-end-line="344" selection-end-column="32" />
+            <state relative-caret-position="457">
+              <caret line="458" selection-start-line="458" selection-end-line="458" />
               <folding>
                 <element signature="e#0#13#0" expanded="true" />
               </folding>
@@ -28,7 +28,7 @@
       <file leaf-file-name="main.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-121">
+            <state relative-caret-position="-652">
               <caret line="44" column="45" selection-start-line="44" selection-start-column="41" selection-end-line="44" selection-end-column="45" />
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
@@ -57,6 +57,7 @@
       <find>LossTracker</find>
       <find>show</find>
       <find>loss_tr</find>
+      <find>device</find>
       <find>plot</find>
     </findStrings>
   </component>
@@ -152,16 +153,6 @@
     <option name="myLimit" value="2678400000" />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/main.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-121">
-          <caret line="44" column="45" selection-start-line="44" selection-start-column="41" selection-end-line="44" selection-end-column="45" />
-          <folding>
-            <element signature="e#0#12#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/utils.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="255">
@@ -172,10 +163,20 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/main.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-652">
+          <caret line="44" column="45" selection-start-line="44" selection-start-column="41" selection-end-line="44" selection-end-column="45" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/model.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="168">
-          <caret line="344" column="32" selection-start-line="344" selection-start-column="32" selection-end-line="344" selection-end-column="32" />
+        <state relative-caret-position="457">
+          <caret line="458" selection-start-line="458" selection-end-line="458" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
           </folding>
