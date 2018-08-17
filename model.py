@@ -300,6 +300,7 @@ class Net(object):
             epochs=1,
             weight_decay=1e-5,
             lr=2e-4,
+            should_plot = False,
             betas=(0.9, 0.999),
             name=default_train_results_dir(),
             valid_size=None,
@@ -450,12 +451,12 @@ class Net(object):
 
             # print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)
             loss_tracker.append_many(**{k: mean(v) for k, v in losses.items()})
-            try:
+            if (should_plot == True):
                 loss_tracker.plot()
-            except:
-                print("Cant plot")
+
             logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
-        loss_tracker.plot()
+        if (should_plot == True):
+            loss_tracker.plot()
 
     def _mass_fn(self, fn_name, *args, **kwargs):
         """Apply a function to all possible Net's components.
