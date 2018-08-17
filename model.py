@@ -342,7 +342,7 @@ class Net(object):
 
         #  TODO - write a txt file with all arguments to results folder
 
-        loss_tracker = LossTracker('train', 'valid', 'dz', 'reg', 'ez', 'dimg')
+        loss_tracker = LossTracker('train', 'valid', 'dz', 'reg', 'ez', 'dimg', should_plot)
         save_count = 0
         for epoch in range(1, epochs + 1):
             where_to_save_epoch = where_to_save + "/epoch" + str(epoch) +'/'

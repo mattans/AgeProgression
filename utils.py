@@ -154,7 +154,8 @@ def default_test_results_dir(eval=True):
 
 class LossTracker(object):
     def __init__(self, *names, **kwargs):
-
+        print("namesLLLLLL     "+ str(names))
+        print("kwargs        "+ str(kwargs))
         assert 'train' in names and 'valid' in names, str(names)
         self.losses = defaultdict(lambda: [])
         self.paths = []
@@ -162,7 +163,8 @@ class LossTracker(object):
         self.use_heuristics = kwargs.get('use_heuristics', False)
         self.eps = abs(kwargs.get('eps', 1e-3))
         plt.ion()
-        plt.show()
+        if(names[-1] == True):
+            plt.show()
 
     # deprecated
     def append(self, train_loss, valid_loss, tv_loss, uni_loss, path):
