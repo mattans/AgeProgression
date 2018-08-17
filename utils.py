@@ -5,7 +5,7 @@ import threading
 from shutil import copyfile
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
+import matplotlib
 from collections import namedtuple
 
 import torch
@@ -164,6 +164,8 @@ class LossTracker(object):
             print("names[-1] - "+names[-1])
             plt.ion()
             plt.show()
+        else:
+            matplotlib.use('Agg')
 
     # deprecated
     def append(self, train_loss, valid_loss, tv_loss, uni_loss, path):
