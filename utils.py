@@ -14,10 +14,12 @@ from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
 import datetime
 from torchvision.utils import save_image
+from collections import defaultdict
 
 
 def save_image_normalized(*args, **kwargs):
     save_image(*args, **kwargs, normalize=True, range=(-1, 1))
+
 
 
 def merge(images, size):
@@ -151,7 +153,7 @@ class LossTracker(object):
     def __init__(self, *names, **kwargs):
 
         assert 'train' in names and 'valid' in names, str(names)
-        self.losses = {name: [] for name in names}
+        self.losses = defaultdict(lambda: [])
         self.paths = []
         self.epochs = 0
         self.use_heuristics = kwargs.get('use_heuristics', False)
@@ -211,6 +213,10 @@ class LossTracker(object):
     def show():
         plt.show()
 
+    @staticmethod
+    def save(path):
+        plt.savefig(path, transparent=True)
+
     def __repr__(self):
         ret = {}
         for name, value in self.losses.items():
@@ -243,3 +249,13 @@ def get_list_of_labels(lst):
             new_list.append(9)
         return new_list
 
+
+def mean(l):
+    return np.array(l).mean()
+
+from sklearn.metrics.regression import mean_squared_error as mse
+def uni_loss(input):
+    assert len(input.shape) == 2
+    hist = torch.histc(input=input, bins=input.size(1), min=-1, max=1)
+    bin_avg_value = input.size(0)
+    return mse(hist, bin_avg_value * torch.ones_like(hist)) / input.size(1)
