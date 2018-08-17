@@ -342,6 +342,7 @@ class Net(object):
         #  TODO - write a txt file with all arguments to results folder
 
         loss_tracker = LossTracker('train', 'valid', 'dz', 'reg', 'ez', 'dimg', should_plot)
+        where_to_save_epoch = ""
         save_count = 0
         for epoch in range(1, epochs + 1):
             where_to_save_epoch = where_to_save + "/epoch" + str(epoch) +'/'
@@ -437,7 +438,7 @@ class Net(object):
                     loss_tracker.save(os.path.join(cp_path, 'losses.png'))
 
                 save_count += 1
-
+            cp_path = self.save(where_to_save_epoch)
             with torch.no_grad():  # validation
 
                 self.eval()  # move to eval mode
