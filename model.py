@@ -300,11 +300,12 @@ class Net(object):
             epochs=1,
             weight_decay=1e-5,
             lr=2e-4,
-            should_plot = False,
+            should_plot=False,
             betas=(0.9, 0.999),
             name=default_train_results_dir(),
             valid_size=None,
     ):
+        print(should_plot)
         where_to_save = default_where_to_save()
         if not os.path.exists(where_to_save):
             os.makedirs(where_to_save)
