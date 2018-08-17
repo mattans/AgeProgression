@@ -88,7 +88,7 @@ class DiscriminatorZ(nn.Module):
                     nn.Linear(in_dim, out_dim),
                     nn.BatchNorm1d(out_dim),
                     nn.ReLU()
-                )x
+                )
             )
 
         self.layers.add_module(
