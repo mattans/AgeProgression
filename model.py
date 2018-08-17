@@ -305,7 +305,8 @@ class Net(object):
             valid_size=None,
     ):
         where_to_save = default_where_to_save()
-
+        if not os.path.exists(default_where_to_save):
+            os.makedirs(default_where_to_save)
         train_dataset = get_utkface_dataset(utkface_path)
         valid_dataset = get_utkface_dataset(utkface_path)
         dset_size = len(train_dataset)
