@@ -164,6 +164,8 @@ class LossTracker(object):
             print("names[-1] - "+names[-1])
             plt.ion()
             plt.show()
+        else:
+            plt.switch_backend("agg")
 
 
     # deprecated
