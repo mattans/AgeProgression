@@ -164,8 +164,7 @@ class LossTracker(object):
             print("names[-1] - "+names[-1])
             plt.ion()
             plt.show()
-        else:
-            plt.ioff()
+
 
     # deprecated
     def append(self, train_loss, valid_loss, tv_loss, uni_loss, path):
