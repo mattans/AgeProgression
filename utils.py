@@ -165,7 +165,7 @@ class LossTracker(object):
             plt.ion()
             plt.show()
         else:
-            matplotlib.use('Agg')
+            plt.ioff()
 
     # deprecated
     def append(self, train_loss, valid_loss, tv_loss, uni_loss, path):
