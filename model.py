@@ -88,7 +88,7 @@ class DiscriminatorZ(nn.Module):
                     nn.Linear(in_dim, out_dim),
                     nn.BatchNorm1d(out_dim),
                     nn.ReLU()
-                )
+                )x
             )
 
         self.layers.add_module(
@@ -156,7 +156,7 @@ class DiscriminatorImg(nn.Module):
                 out = torch.cat((out, labels_tensor), 1)
 
         # run fcs
-        out = out.flatten(-1, 1)
+        oout = self._compress(out)
         for fc_layer in self.fc_layers:
             # print(out.shape)
             # print(fc_layer)
