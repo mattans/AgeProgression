@@ -156,7 +156,7 @@ class DiscriminatorImg(nn.Module):
                 out = torch.cat((out, labels_tensor), 1)
 
         # run fcs
-        oout = self._compress(out)
+        out = out.flatten(1, -1)
         for fc_layer in self.fc_layers:
             # print(out.shape)
             # print(fc_layer)
