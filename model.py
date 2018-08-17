@@ -305,8 +305,7 @@ class Net(object):
             valid_size=None,
     ):
         where_to_save = default_where_to_save()
-        if not os.path.exists(where_to_save):
-            os.makedirs()
+
         train_dataset = get_utkface_dataset(utkface_path)
         valid_dataset = get_utkface_dataset(utkface_path)
         dset_size = len(train_dataset)
@@ -344,6 +343,8 @@ class Net(object):
         save_count = 0
         for epoch in range(1, epochs + 1):
             where_to_save_epoch = where_to_save + "epoch" + epoch +'/'
+            if not os.path.exists(where_to_save_epoch):
+                os.makedirs(where_to_save_epoch)
             losses = defaultdict(lambda: [])
             for i, (images, labels) in enumerate(train_loader, 1):
 
