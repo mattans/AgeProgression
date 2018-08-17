@@ -304,7 +304,9 @@ class Net(object):
             name=default_train_results_dir(),
             valid_size=None,
     ):
-
+        where_to_save = default_where_to_save()
+        if not os.path.exists(where_to_save):
+            os.makedirs()
         train_dataset = get_utkface_dataset(utkface_path)
         valid_dataset = get_utkface_dataset(utkface_path)
         dset_size = len(train_dataset)
@@ -341,6 +343,7 @@ class Net(object):
         loss_tracker = LossTracker('train', 'valid', 'dz', 'reg', 'ez', 'dimg')
         save_count = 0
         for epoch in range(1, epochs + 1):
+            where_to_save_epoch = where_to_save + "epoch" + epoch +'/'
             losses = defaultdict(lambda: [])
             for i, (images, labels) in enumerate(train_loader, 1):
 
@@ -426,7 +429,8 @@ class Net(object):
                     logging.info('[{h}:{m}[Epoch {e}, i: {c}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, c=i,
                                                                                 t=loss.item()))
                     print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
-                    cp_path = self.save(name)
+
+                    cp_path = self.save(where_to_save_epoch)
                     loss_tracker.save(os.path.join(cp_path, 'losses.png'))
 
                 save_count += 1
@@ -439,7 +443,7 @@ class Net(object):
                 z_l = torch.cat((z, validate_labels), 1)
                 generated = self.G(z_l)
                 loss = l1_loss(validate_images, generated)
-                save_image_normalized(tensor=generated, filename='results/onesided_' + str(epoch) + '.png', nrow=8)
+                save_image_normalized(tensor=generated, filename=where_to_save_epoch+'onesided_' + str(epoch) + '.png', nrow=8)
                 losses['valid'].append(loss.item())
 
             # print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)
