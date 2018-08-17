@@ -160,9 +160,9 @@ class LossTracker(object):
         self.epochs = 0
         self.use_heuristics = kwargs.get('use_heuristics', False)
         self.eps = abs(kwargs.get('eps', 1e-3))
-        plt.ion()
         if(names[-1] == True):
             print("names[-1] - "+names[-1])
+            plt.ion()
             plt.show()
 
     # deprecated
