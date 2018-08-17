@@ -331,7 +331,7 @@ class Net(object):
                 [str_to_tensor(idx_to_class[l]).to(device=self.device) for l in list(labels.numpy())])
             validate_labels = labels.to(device=self.device)
 
-        save_image_normalized(tensor=validate_images, filename="./results/base.png")
+        save_image_normalized(tensor=validate_images, filename=where_to_save+"/base.png")
 
         for optimizer in (self.eg_optimizer, self.dz_optimizer, self.di_optimizer):
             for param in ('weight_decay', 'betas', 'lr'):
@@ -342,7 +342,7 @@ class Net(object):
         loss_tracker = LossTracker('train', 'valid', 'dz', 'reg', 'ez', 'dimg')
         save_count = 0
         for epoch in range(1, epochs + 1):
-            where_to_save_epoch = where_to_save + "epoch" + epoch +'/'
+            where_to_save_epoch = where_to_save + "/epoch" + str(epoch) +'/'
             if not os.path.exists(where_to_save_epoch):
                 os.makedirs(where_to_save_epoch)
             losses = defaultdict(lambda: [])
