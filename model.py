@@ -450,7 +450,10 @@ class Net(object):
 
             # print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)
             loss_tracker.append_many(**{k: mean(v) for k, v in losses.items()})
-            loss_tracker.plot()
+            try:
+                loss_tracker.plot()
+            except:
+                print("Cant plot")
             logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
         loss_tracker.plot()
 
