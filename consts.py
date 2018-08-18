@@ -28,3 +28,5 @@ FEMALE = 1
 
 UTKFACE_DEFAULT_PATH = './data/UTKFace'
 utkface_path = UTKFACE_DEFAULT_PATH
+
+TRAINED_MODEL_FORMAT = "{}.dat"

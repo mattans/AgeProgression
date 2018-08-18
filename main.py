@@ -42,6 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', '--learning-rate', dest='lr', default=2e-4, type=float)
     parser.add_argument('--b1', '--beta1', dest='b1', default=0.9, type=float)
     parser.add_argument('--b2', '--beta2', dest='b2', default=0.999, type=float)
+    parser.add_argument('--sp', '--shouldplot', dest='sp', default=False, type=bool)
 
     # test params
     parser.add_argument('--age', required=False, type=int)
@@ -87,6 +88,7 @@ if __name__ == '__main__':
             epochs=args.epochs,
             weight_decay=args.weight_decay,
             lr=args.lr,
+            should_plot=args.sp,
             name=results_dest,
         )
 
