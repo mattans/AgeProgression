@@ -156,7 +156,7 @@ class DiscriminatorImg(nn.Module):
                 out = torch.cat((out, labels_tensor), 1)
 
         # run fcs
-        out = out.flatten(-1, 1)
+        out = out.flatten(1, -1)
         for fc_layer in self.fc_layers:
             # print(out.shape)
             # print(fc_layer)
@@ -303,6 +303,7 @@ class Net(object):
             betas=(0.9, 0.999),
             name=default_train_results_dir(),
             valid_size=None,
+            plot=False,
     ):
 
         train_dataset = get_utkface_dataset(utkface_path)
@@ -338,7 +339,7 @@ class Net(object):
 
         #  TODO - write a txt file with all arguments to results folder
 
-        loss_tracker = LossTracker('train', 'valid', 'dz', 'reg', 'ez', 'dimg')
+        loss_tracker = LossTracker('train', 'valid', 'dz', 'reg', 'ez', 'dimg', plot=plot)
         save_count = 0
         for epoch in range(1, epochs + 1):
             losses = defaultdict(lambda: [])
@@ -444,9 +445,9 @@ class Net(object):
 
             # print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)
             loss_tracker.append_many(**{k: mean(v) for k, v in losses.items()})
-            loss_tracker.plot()
+            if loss_tracker.graphic:
+                loss_tracker.plot()
             logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
-        loss_tracker.plot()
 
     def _mass_fn(self, fn_name, *args, **kwargs):
         """Apply a function to all possible Net's components.

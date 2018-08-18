@@ -158,8 +158,12 @@ class LossTracker(object):
         self.epochs = 0
         self.use_heuristics = kwargs.get('use_heuristics', False)
         self.eps = abs(kwargs.get('eps', 1e-3))
-        plt.ion()
-        plt.show()
+        self.graphic = kwargs.get('plot', False)
+        if self.graphic:
+            plt.ion()
+            plt.show()
+        else:
+            plt.ioff()
 
     # deprecated
     def append(self, train_loss, valid_loss, tv_loss, uni_loss, path):
@@ -206,8 +210,9 @@ class LossTracker(object):
         plt.ylabel('Averaged loss')
         plt.title('Losses by epoch')
         plt.grid(True)
-        plt.draw()
-        plt.pause(0.001)
+        if self.graphic:
+            plt.draw()
+            plt.pause(0.001)
 
     @staticmethod
     def show():
