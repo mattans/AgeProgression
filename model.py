@@ -304,6 +304,7 @@ class Net(object):
             betas=(0.9, 0.999),
             name=default_train_results_dir(),
             valid_size=None,
+            models_saving='always',
     ):
         where_to_save = default_where_to_save()
         if not os.path.exists(where_to_save):
@@ -434,7 +435,8 @@ class Net(object):
                                                                                 t=loss.item()))
                     print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
 
-                    cp_path = self.save(where_to_save_epoch)
+                    to_save_models = models_saving == 'always'
+                    cp_path = self.save(where_to_save_epoch, to_save_models=to_save_models)
                     loss_tracker.save(os.path.join(cp_path, 'losses.png'))
 
                 save_count += 1
@@ -446,7 +448,7 @@ class Net(object):
                 z = self.E(validate_images)
                 z_l = torch.cat((z, validate_labels), 1)
                 generated = self.G(z_l)
-                loss = l1_loss(validate_images, generated)
+                loss = mse_loss(validate_images, generated)
                 save_image_normalized(tensor=generated, filename=where_to_save_epoch+'onesided_' + str(epoch) + '.png', nrow=8)
                 losses['valid'].append(loss.item())
 
@@ -456,6 +458,8 @@ class Net(object):
 
             logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
 
+        if models_saving == 'last':
+            cp_path = self.save(where_to_save_epoch)
         loss_tracker.plot()
 
     def _mass_fn(self, fn_name, *args, **kwargs):
@@ -496,7 +500,7 @@ class Net(object):
         """
         self._mass_fn('train')
 
-    def save(self, path):
+    def save(self, path, to_save_models=True):
         """Save all state dicts of Net's components.
 
         :return:
@@ -509,7 +513,7 @@ class Net(object):
 
         saved = []
         for class_attr_name in dir(self):
-            if not class_attr_name.startswith('_'):
+            if not class_attr_name.startswith('_') and to_save_models:
                 class_attr = getattr(self, class_attr_name)
                 if hasattr(class_attr, 'state_dict'):
                     state_dict = class_attr.state_dict
@@ -517,7 +521,7 @@ class Net(object):
                     torch.save(state_dict, fname)
                     saved.append(class_attr_name)
 
-        print("Saved {} to {}".format(', '.join(saved), path))
+        print("Saved {} to {}".format(', '.join(saved) or 'nothing', path))
         return path
 
     def load(self, path):
@@ -534,3 +538,5 @@ class Net(object):
                     class_attr.load_state_dict(torch.load(fname)())
                     loaded.append(class_attr_name)
         print("Loaded {} from {}".format(', '.join(loaded), path))
+
+
