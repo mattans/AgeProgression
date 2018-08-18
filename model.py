@@ -305,6 +305,11 @@ class Net(object):
             name=default_train_results_dir(),
             valid_size=None,
     ):
+        eq_loss_factor = 1
+        ez_loss_factor = 0.34
+        di_tot_loss_factor = 0.75
+        dg_loss_factor = 0.12
+        reg_loss_factor = 0
         where_to_save = default_where_to_save()
         if not os.path.exists(where_to_save):
             os.makedirs(where_to_save)
@@ -371,7 +376,7 @@ class Net(object):
                         torch.sum(torch.abs(generated[:, :, :, :-1] - generated[:, :, :, 1:])) +
                         torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
                 ) / float(generated.size(0))
-                reg_loss = 0.000 * l1_loss(reg, torch.zeros_like(reg))
+                reg_loss = reg_loss_factor * l1_loss(reg, torch.zeros_like(reg))
                 reg_loss.to(self.device)
                 losses['reg'].append(reg_loss.item())
 
@@ -388,7 +393,7 @@ class Net(object):
 
 
                 # Encoder\DiscriminatorZ Loss
-                ez_loss = 0.001 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
+                ez_loss = ez_loss_factor * bce_with_logits_loss(d_z, torch.ones_like(d_z))
                 ez_loss.to(self.device)
                 losses['ez'].append(ez_loss.item())
 
@@ -398,11 +403,11 @@ class Net(object):
 
                 di_input_loss = bce_with_logits_loss(d_i_input, torch.ones_like(d_i_input))
                 di_output_loss = bce_with_logits_loss(d_i_output, torch.zeros_like(d_i_output))
-                di_loss_tot = 0.1 * (di_input_loss + di_output_loss)
+                di_loss_tot = di_tot_loss_factor * (di_input_loss + di_output_loss)
                 losses['di'].append(di_loss_tot.item())
 
                 # Generator\DiscriminatorImg Loss
-                dg_loss = 0.001 * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
+                dg_loss = dg_loss_factor * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
                 losses['dg'].append(dg_loss.item())
 
                 losses['uni_diff'] = uni_loss(z.cpu().detach()) - uni_loss(z_prior.cpu().detach())
@@ -412,7 +417,7 @@ class Net(object):
 
                 # Back prop on Encoder\Generator
                 self.eg_optimizer.zero_grad()
-                loss = eg_loss + reg_loss + ez_loss + dg_loss
+                loss = eq_loss_factor * eg_loss + reg_loss + ez_loss + dg_loss
                 loss.backward(retain_graph=True)
                 self.eg_optimizer.step()
 
