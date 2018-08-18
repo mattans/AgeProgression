@@ -363,7 +363,7 @@ class Net(object):
                 # Input\Output Loss
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)
-                eg_loss = mse_loss(generated, images)
+                eg_loss = l1_loss(generated, images)
                 losses['eg'].append(eg_loss.item())
 
                 # Total Variance Regularization Loss
