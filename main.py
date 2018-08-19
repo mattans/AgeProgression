@@ -82,6 +82,20 @@ if __name__ == '__main__':
         results_dest = args.output or utils.default_train_results_dir()
         print("Results folder is {}".format(results_dest))
 
+        #Create info text file besides the epochs directories
+        with open(os.path.join(results_dest , 'session_arguments.txt'), 'a') as info_file:
+            info_file.write(' '.join(sys.argv))
+
+        path_str = os.path.join(results_dest, 'results')
+        try:
+            os.remove(os.path.join(path_str, 'log_results.log'))
+        except:
+            if not os.path.exists(path_str):
+                os.makedirs(path_str)
+
+        logging.basicConfig(filename=os.path.join(path_str , 'log_results.log'), level=logging.DEBUG)
+
+
         net.teach(
             utkface_path=data_src,
             batch_size=args.batch_size,
@@ -90,7 +104,7 @@ if __name__ == '__main__':
             weight_decay=args.weight_decay,
             lr=args.lr,
             should_plot=args.sp,
-            name=results_dest,
+            where_to_save=results_dest
             models_saving=models_saving,
         )
 
@@ -103,7 +117,7 @@ if __name__ == '__main__':
 
         results_dest = args.output or utils.default_test_results_dir()
 
-        img = utils.pil_to_model_tensor_transform(pil_loader(args.input))
+        img = utils.pil_to_model_tensor_transform(pil_loader(args.input)) #Covert path to image (pil_loader)
         if not args.cpu and torch.cuda.is_available():
             img = img.cuda()
         else:
