@@ -104,8 +104,8 @@ if __name__ == '__main__':
             weight_decay=args.weight_decay,
             lr=args.lr,
             should_plot=args.sp,
-            where_to_save=results_dest
-            models_saving=models_saving,
+            where_to_save=results_dest,
+            models_saving=models_saving
         )
 
     elif args.mode == 'test':
