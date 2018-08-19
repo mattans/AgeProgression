@@ -21,6 +21,7 @@ assert sys.version_info >= (3, 6),\
 assert tuple(int(ver_num) for ver_num in torch.__version__.split('.')) >= (0, 4, 0),\
     "This script requires PyTorch >= 0.4.0"  # TODO 0.4.1?
 
+
 def str_to_gender(s):
     s = str(s).lower()
     if s in ('m', 'man', '0'):
@@ -30,13 +31,13 @@ def str_to_gender(s):
     else:
         raise Exception()
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='AgeProgression on PyTorch.')
     parser.add_argument('--mode', choices=['train', 'test'], default='train')
 
     # train params
     parser.add_argument('--epochs', default=1, type=int)
+    parser.add_argument('--models-saving', dest='models_saving', choices=['always', 'last', 'never'], default='always', type=str)
     parser.add_argument('--bs', '--batch-size', dest='batch_size', default=64, type=int)
     parser.add_argument('--wd', '--weight-decay', dest='weight_decay', default=1e-5, type=float)
     parser.add_argument('--lr', '--learning-rate', dest='lr', default=2e-4, type=float)
@@ -60,6 +61,11 @@ if __name__ == '__main__':
     parser.add_argument('--output', '-o', default='')
     args = parser.parse_args()
 
+    try:
+        os.remove(r'results/log_results.log')
+    except OSError:
+        pass
+    logging.basicConfig(filename=r'results/log_results.log', level=logging.DEBUG)
 
     net = model.Net()
     if args.cpu:  # force usage of cpu even if cuda is available (can be faster for testing)
@@ -99,6 +105,7 @@ if __name__ == '__main__':
             lr=args.lr,
             should_plot=args.sp,
             where_to_save=results_dest
+            models_saving=models_saving,
         )
 
     elif args.mode == 'test':
