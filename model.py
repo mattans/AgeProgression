@@ -19,6 +19,7 @@ from torchvision.datasets import ImageFolder
 import logging
 # from torch.nn.functional import relu
 from torch.utils.data.sampler import SubsetRandomSampler
+from torchvision.datasets.folder import pil_loader
 import scipy.stats as stats
 import cv2
 
@@ -267,7 +268,7 @@ class Net(object):
 
         generated = self.G(z_l)
 
-        img_tensor = img_tensor.transpose(0, 1).transpose(1, 2)
+        img_tensor = img_tensor.transpose(0, 1).transpose(1, 2) #Dimenssion transform
         img_tensor = 255 * one_sided(img_tensor.numpy())
         img_tensor = np.ascontiguousarray(img_tensor, dtype=np.uint8)
 
@@ -289,7 +290,7 @@ class Net(object):
         img_tensor = two_sided(torch.from_numpy(img_tensor / 255.0)).float()
         img_tensor = img_tensor.transpose(0, 1).transpose(0, 2)
 
-        joined = torch.cat((img_tensor.unsqueeze(0), generated), 0)
+        joined = torch.cat((img_tensor.unsqueeze(0), generated), 0) # Conver one image to 1 sized batch
 
         save_image_normalized(tensor=joined, filename=os.path.join(target, 'menifa.png'), nrow=joined.size(0))
 
@@ -302,12 +303,10 @@ class Net(object):
             lr=2e-4,
             should_plot=False,
             betas=(0.9, 0.999),
-            name=default_train_results_dir(),
             valid_size=None,
+            where_to_save=None,
     ):
-        where_to_save = default_where_to_save()
-        if not os.path.exists(where_to_save):
-            os.makedirs(where_to_save)
+        where_to_save = where_to_save or default_where_to_save()
         train_dataset = get_utkface_dataset(utkface_path)
         valid_dataset = get_utkface_dataset(utkface_path)
         dset_size = len(train_dataset)
@@ -344,10 +343,15 @@ class Net(object):
         loss_tracker = LossTracker('train', 'valid', 'dz', 'reg', 'ez', 'dimg', should_plot)
         where_to_save_epoch = ""
         save_count = 0
+        paths_for_gif = []
+
+
+
         for epoch in range(1, epochs + 1):
-            where_to_save_epoch = where_to_save + "/epoch" + str(epoch) +'/'
+            where_to_save_epoch = os.path.join(where_to_save , "epoch" + str(epoch))
             if not os.path.exists(where_to_save_epoch):
                 os.makedirs(where_to_save_epoch)
+            paths_for_gif.append(where_to_save_epoch)
             losses = defaultdict(lambda: [])
             for i, (images, labels) in enumerate(train_loader, 1):
 
@@ -383,8 +387,6 @@ class Net(object):
                 dz_loss = bce_with_logits_loss(d_z, torch.zeros_like(d_z))
                 dz_loss_tot = (dz_loss + dz_loss_prior)
                 losses['dz'].append(dz_loss_tot.item())
-
-
 
 
                 # Encoder\DiscriminatorZ Loss
@@ -447,8 +449,11 @@ class Net(object):
                 z_l = torch.cat((z, validate_labels), 1)
                 generated = self.G(z_l)
                 loss = l1_loss(validate_images, generated)
-                save_image_normalized(tensor=generated, filename=where_to_save_epoch+'onesided_' + str(epoch) + '.png', nrow=8)
+                file_name = os.path.join(where_to_save_epoch , 'onesided_' + str(epoch) +'.png' )
+                save_image_normalized(tensor=generated, filename=file_name , nrow=8)
+
                 losses['valid'].append(loss.item())
+
 
             # print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)
             loss_tracker.append_many(**{k: mean(v) for k, v in losses.items()})

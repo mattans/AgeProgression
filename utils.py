@@ -1,6 +1,7 @@
 import consts
 import os
 import threading
+import imageio
 
 from shutil import copyfile
 import numpy as np
@@ -20,6 +21,22 @@ from collections import defaultdict
 def save_image_normalized(*args, **kwargs):
     save_image(*args, **kwargs, normalize=True, range=(-1, 1))
 
+def create_gif( list_of_img_path , gif_location )
+    image = pil_loader(path)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    bottomLeftCornerOfText = (2, 25)
+    fontScale = 0.5
+    fontColor = (0, 128, 0)  # dark green, should be visible on most skin colors
+    lineType = 2
+    cv2.putText(
+        image,
+        '{}, {}'.format("Epoch: ", epoch),
+        bottomLeftCornerOfText,
+        font,
+        fontScale,
+        fontColor,
+        lineType,
+    )
 
 
 def merge(images, size):
@@ -145,7 +162,9 @@ def default_train_results_dir(eval=True):
     return os.path.join('.', 'trained_models', datetime.datetime.now().strftime(fmt) if eval else fmt)
 
 def default_where_to_save(eval=True):
-    return os.path.join('.', 'results', datetime.datetime.now().strftime(fmt), datetime.datetime.now().strftime(fmt_t))
+    path_str = os.path.join('.', 'results', datetime.datetime.now().strftime(fmt), datetime.datetime.now().strftime(fmt_t))
+    if not os.path.exists(path_str):
+        os.makedirs(path_str)
 
 
 def default_test_results_dir(eval=True):
