@@ -21,22 +21,7 @@ from collections import defaultdict
 def save_image_normalized(*args, **kwargs):
     save_image(*args, **kwargs, normalize=True, range=(-1, 1))
 
-def create_gif( list_of_img_path , gif_location )
-    image = pil_loader(path)
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    bottomLeftCornerOfText = (2, 25)
-    fontScale = 0.5
-    fontColor = (0, 128, 0)  # dark green, should be visible on most skin colors
-    lineType = 2
-    cv2.putText(
-        image,
-        '{}, {}'.format("Epoch: ", epoch),
-        bottomLeftCornerOfText,
-        font,
-        fontScale,
-        fontColor,
-        lineType,
-    )
+
 
 
 def merge(images, size):
