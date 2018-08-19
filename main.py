@@ -83,8 +83,6 @@ if __name__ == '__main__':
         print("Results folder is {}".format(results_dest))
 
         #Create info text file besides the epochs directories
-        with open(os.path.join(results_dest , 'session_arguments.txt'), 'a') as info_file:
-            info_file.write(' '.join(sys.argv))
 
         path_str = os.path.join(results_dest, 'results')
         try:
@@ -92,6 +90,9 @@ if __name__ == '__main__':
         except:
             if not os.path.exists(path_str):
                 os.makedirs(path_str)
+        with open(os.path.join(results_dest , 'session_arguments.txt'), 'a') as info_file:
+            info_file.write(' '.join(sys.argv))
+
 
         logging.basicConfig(filename=os.path.join(path_str , 'log_results.log'), level=logging.DEBUG)
 
@@ -105,7 +106,7 @@ if __name__ == '__main__':
             lr=args.lr,
             should_plot=args.sp,
             where_to_save=results_dest,
-            models_saving=models_saving
+            models_saving=args.models_saving
         )
 
     elif args.mode == 'test':
