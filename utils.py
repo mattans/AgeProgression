@@ -171,7 +171,6 @@ class LossTracker(object):
         else:
             plt.switch_backend("agg")
 
-
     # deprecated
     def append(self, train_loss, valid_loss, tv_loss, uni_loss, path):
         self.train_losses.append(train_loss)
@@ -218,8 +217,9 @@ class LossTracker(object):
         plt.ylabel('Averaged loss')
         plt.title('Losses by epoch')
         plt.grid(True)
-        plt.draw()
-        plt.pause(0.001)
+        if self.graphic:
+            plt.draw()
+            plt.pause(0.001)
 
     @staticmethod
     def show():

@@ -306,7 +306,6 @@ class Net(object):
             valid_size=None,
             where_to_save=None,
             models_saving='always',
-
     ):
         where_to_save = where_to_save or default_where_to_save()
         train_dataset = get_utkface_dataset(utkface_path)
