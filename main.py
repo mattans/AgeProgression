@@ -21,6 +21,7 @@ assert sys.version_info >= (3, 6),\
 assert tuple(int(ver_num) for ver_num in torch.__version__.split('.')) >= (0, 4, 0),\
     "This script requires PyTorch >= 0.4.0"  # TODO 0.4.1?
 
+
 def str_to_gender(s):
     s = str(s).lower()
     if s in ('m', 'man', '0'):
@@ -30,19 +31,19 @@ def str_to_gender(s):
     else:
         raise Exception()
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='AgeProgression on PyTorch.')
     parser.add_argument('--mode', choices=['train', 'test'], default='train')
 
     # train params
     parser.add_argument('--epochs', default=1, type=int)
+    parser.add_argument('--models-saving', dest='models_saving', choices=['always', 'last', 'never'], default='always', type=str)
     parser.add_argument('--bs', '--batch-size', dest='batch_size', default=64, type=int)
     parser.add_argument('--wd', '--weight-decay', dest='weight_decay', default=1e-5, type=float)
     parser.add_argument('--lr', '--learning-rate', dest='lr', default=2e-4, type=float)
     parser.add_argument('--b1', '--beta1', dest='b1', default=0.9, type=float)
     parser.add_argument('--b2', '--beta2', dest='b2', default=0.999, type=float)
-    parser.add_argument('--plot', action='store_true')
+    parser.add_argument('--sp', '--shouldplot', dest='sp', default=False, type=bool)
 
     # test params
     parser.add_argument('--age', required=False, type=int)
@@ -62,7 +63,7 @@ if __name__ == '__main__':
 
     try:
         os.remove(r'results/log_results.log')
-    except:
+    except OSError:
         pass
     logging.basicConfig(filename=r'results/log_results.log', level=logging.DEBUG)
 
@@ -81,6 +82,21 @@ if __name__ == '__main__':
         results_dest = args.output or utils.default_train_results_dir()
         print("Results folder is {}".format(results_dest))
 
+        #Create info text file besides the epochs directories
+
+        path_str = os.path.join(results_dest, 'results')
+        try:
+            os.remove(os.path.join(path_str, 'log_results.log'))
+        except:
+            if not os.path.exists(path_str):
+                os.makedirs(path_str)
+        with open(os.path.join(results_dest , 'session_arguments.txt'), 'a') as info_file:
+            info_file.write(' '.join(sys.argv))
+
+
+        logging.basicConfig(filename=os.path.join(path_str , 'log_results.log'), level=logging.DEBUG)
+
+
         net.teach(
             utkface_path=data_src,
             batch_size=args.batch_size,
@@ -88,8 +104,9 @@ if __name__ == '__main__':
             epochs=args.epochs,
             weight_decay=args.weight_decay,
             lr=args.lr,
-            name=results_dest,
-            plot=args.plot,
+            should_plot=args.sp,
+            where_to_save=results_dest,
+            models_saving=args.models_saving
         )
 
     elif args.mode == 'test':
@@ -101,7 +118,7 @@ if __name__ == '__main__':
 
         results_dest = args.output or utils.default_test_results_dir()
 
-        img = utils.pil_to_model_tensor_transform(pil_loader(args.input))
+        img = utils.pil_to_model_tensor_transform(pil_loader(args.input)) #Covert path to image (pil_loader)
         if not args.cpu and torch.cuda.is_available():
             img = img.cuda()
         else:

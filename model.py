@@ -19,6 +19,7 @@ from torchvision.datasets import ImageFolder
 import logging
 # from torch.nn.functional import relu
 from torch.utils.data.sampler import SubsetRandomSampler
+from torchvision.datasets.folder import pil_loader
 import scipy.stats as stats
 import cv2
 
@@ -267,7 +268,7 @@ class Net(object):
 
         generated = self.G(z_l)
 
-        img_tensor = img_tensor.transpose(0, 1).transpose(1, 2)
+        img_tensor = img_tensor.transpose(0, 1).transpose(1, 2) #Dimenssion transform
         img_tensor = 255 * one_sided(img_tensor.numpy())
         img_tensor = np.ascontiguousarray(img_tensor, dtype=np.uint8)
 
@@ -289,7 +290,7 @@ class Net(object):
         img_tensor = two_sided(torch.from_numpy(img_tensor / 255.0)).float()
         img_tensor = img_tensor.transpose(0, 1).transpose(0, 2)
 
-        joined = torch.cat((img_tensor.unsqueeze(0), generated), 0)
+        joined = torch.cat((img_tensor.unsqueeze(0), generated), 0) # Conver one image to 1 sized batch
 
         save_image_normalized(tensor=joined, filename=os.path.join(target, 'menifa.png'), nrow=joined.size(0))
 
@@ -300,12 +301,13 @@ class Net(object):
             epochs=1,
             weight_decay=1e-5,
             lr=2e-4,
+            should_plot=False,
             betas=(0.9, 0.999),
-            name=default_train_results_dir(),
             valid_size=None,
-            plot=False,
+            where_to_save=None,
+            models_saving='always',
     ):
-
+        where_to_save = where_to_save or default_where_to_save()
         train_dataset = get_utkface_dataset(utkface_path)
         valid_dataset = get_utkface_dataset(utkface_path)
         dset_size = len(train_dataset)
@@ -331,7 +333,7 @@ class Net(object):
                 [str_to_tensor(idx_to_class[l]).to(device=self.device) for l in list(labels.numpy())])
             validate_labels = labels.to(device=self.device)
 
-        save_image_normalized(tensor=validate_images, filename="./results/base.png")
+        save_image_normalized(tensor=validate_images, filename=where_to_save+"/base.png")
 
         for optimizer in (self.eg_optimizer, self.dz_optimizer, self.di_optimizer):
             for param in ('weight_decay', 'betas', 'lr'):
@@ -339,9 +341,18 @@ class Net(object):
 
         #  TODO - write a txt file with all arguments to results folder
 
-        loss_tracker = LossTracker('train', 'valid', 'dz', 'reg', 'ez', 'dimg', plot=plot)
+        loss_tracker = LossTracker('train', 'valid', 'dz', 'reg', 'ez', 'dimg', should_plot)
+        where_to_save_epoch = ""
         save_count = 0
+        paths_for_gif = []
+
+
+
         for epoch in range(1, epochs + 1):
+            where_to_save_epoch = os.path.join(where_to_save , "epoch" + str(epoch))
+            if not os.path.exists(where_to_save_epoch):
+                os.makedirs(where_to_save_epoch)
+            paths_for_gif.append(where_to_save_epoch)
             losses = defaultdict(lambda: [])
             for i, (images, labels) in enumerate(train_loader, 1):
 
@@ -357,7 +368,7 @@ class Net(object):
                 # Input\Output Loss
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)
-                eg_loss = mse_loss(generated, images)
+                eg_loss = l1_loss(generated, images)
                 losses['eg'].append(eg_loss.item())
 
                 # Total Variance Regularization Loss
@@ -377,8 +388,6 @@ class Net(object):
                 dz_loss = bce_with_logits_loss(d_z, torch.zeros_like(d_z))
                 dz_loss_tot = (dz_loss + dz_loss_prior)
                 losses['dz'].append(dz_loss_tot.item())
-
-
 
 
                 # Encoder\DiscriminatorZ Loss
@@ -427,11 +436,13 @@ class Net(object):
                     logging.info('[{h}:{m}[Epoch {e}, i: {c}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, c=i,
                                                                                 t=loss.item()))
                     print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
-                    cp_path = self.save(name)
+
+                    to_save_models = models_saving == 'always'
+                    cp_path = self.save(where_to_save_epoch, to_save_models=to_save_models)
                     loss_tracker.save(os.path.join(cp_path, 'losses.png'))
 
                 save_count += 1
-
+            cp_path = self.save(where_to_save_epoch)
             with torch.no_grad():  # validation
 
                 self.eval()  # move to eval mode
@@ -439,15 +450,23 @@ class Net(object):
                 z = self.E(validate_images)
                 z_l = torch.cat((z, validate_labels), 1)
                 generated = self.G(z_l)
+
                 loss = l1_loss(validate_images, generated)
-                save_image_normalized(tensor=generated, filename='results/onesided_' + str(epoch) + '.png', nrow=8)
+                file_name = os.path.join(where_to_save_epoch , 'onesided_' + str(epoch) +'.png' )
+                save_image_normalized(tensor=generated, filename=file_name , nrow=8)
+
                 losses['valid'].append(loss.item())
+
 
             # print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)
             loss_tracker.append_many(**{k: mean(v) for k, v in losses.items()})
-            if loss_tracker.graphic:
-                loss_tracker.plot()
+            loss_tracker.plot()
+
             logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
+
+        if models_saving == 'last':
+            cp_path = self.save(where_to_save_epoch)
+        loss_tracker.plot()
 
     def _mass_fn(self, fn_name, *args, **kwargs):
         """Apply a function to all possible Net's components.
@@ -487,7 +506,7 @@ class Net(object):
         """
         self._mass_fn('train')
 
-    def save(self, path):
+    def save(self, path, to_save_models=True):
         """Save all state dicts of Net's components.
 
         :return:
@@ -500,7 +519,7 @@ class Net(object):
 
         saved = []
         for class_attr_name in dir(self):
-            if not class_attr_name.startswith('_'):
+            if not class_attr_name.startswith('_') and to_save_models:
                 class_attr = getattr(self, class_attr_name)
                 if hasattr(class_attr, 'state_dict'):
                     state_dict = class_attr.state_dict
@@ -508,7 +527,7 @@ class Net(object):
                     torch.save(state_dict, fname)
                     saved.append(class_attr_name)
 
-        print("Saved {} to {}".format(', '.join(saved), path))
+        print("Saved {} to {}".format(', '.join(saved) or 'nothing', path))
         return path
 
     def load(self, path):
@@ -525,3 +544,5 @@ class Net(object):
                     class_attr.load_state_dict(torch.load(fname)())
                     loaded.append(class_attr_name)
         print("Loaded {} from {}".format(', '.join(loaded), path))
+
+
