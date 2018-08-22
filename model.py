@@ -306,9 +306,9 @@ class Net(object):
             valid_size=None,
     ):
         eq_loss_factor = 1
-        ez_loss_factor = 0.34
-        di_tot_loss_factor = 0.75
-        dg_loss_factor = 0.12
+        ez_loss_factor = 0.0017
+        di_tot_loss_factor = 0.005
+        dg_loss_factor = 0.0015
         reg_loss_factor = 0
         where_to_save = default_where_to_save()
         if not os.path.exists(where_to_save):
