@@ -1,14 +1,9 @@
 import consts
 import os
-import threading
-import imageio
-
 from shutil import copyfile
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib
 from collections import namedtuple
-
 import torch
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
@@ -16,14 +11,26 @@ from torch.utils.data import DataLoader
 import datetime
 from torchvision.utils import save_image
 from collections import defaultdict
+import imageio
+import cv2
 
 
+
+fmt_t = "%H_%M"
+fmt = "%Y_%m_%d"
+
+######################################################################
+# Name: save_image_normalized
+# Description: Save tensor as am .png image in the file system.
+######################################################################
 def save_image_normalized(*args, **kwargs):
     save_image(*args, **kwargs, normalize=True, range=(-1, 1))
 
 
-
-
+######################################################################
+# Name: merge
+# Description:
+######################################################################
 def merge(images, size):
     h, w = images.shape[2], images.shape[3]
     img = np.zeros((3, h * size[0], w * size[1]))
@@ -34,18 +41,28 @@ def merge(images, size):
         img[0][j * h:j * h + h, i * w:i * w + w] = image[0]
         img[1][j * h:j * h + h, i * w:i * w + w] = image[1]
         img[2][j * h:j * h + h, i * w:i * w + w] = image[2]
-
     return img
 
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 def two_sided(x):
     return 2 * (x - 0.5)
 
-
+######################################################################
+# Name:
+# Description:
+######################################################################
 def one_sided(x):
     return (x + 1) / 2
 
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 pil_to_model_tensor_transform = transforms.Compose(
     [
         transforms.Resize(size=(128, 128)),
@@ -54,7 +71,10 @@ pil_to_model_tensor_transform = transforms.Compose(
     ]
 )
 
-
+######################################################################
+# Name:
+# Description:
+######################################################################
 def get_utkface_dataset(root):
     print(root)
     ret = lambda: ImageFolder(os.path.join(root, 'labeled'), transform=pil_to_model_tensor_transform)
@@ -64,6 +84,10 @@ def get_utkface_dataset(root):
         sort_to_classes(os.path.join(root, 'unlabeled'), print_cycle=1000)
         return ret()
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 def sort_to_classes(root, print_cycle=np.inf):
     # Example UTKFace cropped and aligned image file format: [age]_[gender]_[race]_[date&time].jpg.chip.jpg
     # Should be 23613 images, use print_cycle >= 1000
@@ -101,10 +125,18 @@ def sort_to_classes(root, print_cycle=np.inf):
     log('Finished labeling process.')
 
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 def get_fgnet_person_loader(root):
     return DataLoader(dataset=ImageFolder(root, transform=pil_to_model_tensor_transform), batch_size=1)
 
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 def str_to_tensor(text):
     age_group, gender = text.split('.')
     age_tensor = -torch.ones(consts.NUM_AGES)
@@ -115,6 +147,10 @@ def str_to_tensor(text):
     return result
 
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 class Label(namedtuple('Label', ('age', 'gender'))):
     def __init__(self, age, gender):
         super(Label, self).__init__()
@@ -131,7 +167,10 @@ class Label(namedtuple('Label', ('age', 'gender'))):
         return str_to_tensor(self.to_str())
 
 
-
+######################################################################
+# Name:
+# Description:
+######################################################################
 def optimizer_and_criterion(criter_class, optim_class, *modules, **optim_args):
     params = []
     for module in modules:
@@ -140,22 +179,37 @@ def optimizer_and_criterion(criter_class, optim_class, *modules, **optim_args):
     return optimizier, criter_class(reduction='elementwise_mean')
 
 
-fmt_t = "%H_%M"
-fmt = "%Y_%m_%d"
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 def default_train_results_dir(eval=True):
     return os.path.join('.', 'trained_models', datetime.datetime.now().strftime(fmt) if eval else fmt)
 
+
+######################################################################
+# Name:
+# Description:
+######################################################################
 def default_where_to_save(eval=True):
     path_str = os.path.join('.', 'results', datetime.datetime.now().strftime(fmt), datetime.datetime.now().strftime(fmt_t))
     if not os.path.exists(path_str):
         os.makedirs(path_str)
 
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 def default_test_results_dir(eval=True):
     return os.path.join('.', 'test_results', datetime.datetime.now().strftime(fmt) if eval else fmt)
 
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 class LossTracker(object):
     def __init__(self, *names, **kwargs):
         assert 'train' in names and 'valid' in names, str(names)
@@ -236,7 +290,10 @@ class LossTracker(object):
             ret[name] = value[-1]
         return str(ret)
 
-
+######################################################################
+# Name:
+# Description:
+######################################################################
 def get_list_of_labels(lst):
     new_list = []
     for label in lst:
@@ -262,13 +319,57 @@ def get_list_of_labels(lst):
             new_list.append(9)
         return new_list
 
-
+######################################################################
+# Name:
+# Description:
+######################################################################
 def mean(l):
     return np.array(l).mean()
 
+
+######################################################################
+# Name:
+# Description:
+######################################################################
 from sklearn.metrics.regression import mean_squared_error as mse
 def uni_loss(input):
     assert len(input.shape) == 2
     hist = torch.histc(input=input, bins=input.size(1), min=-1, max=1)
     bin_avg_value = input.size(0)
     return mse(hist, bin_avg_value * torch.ones_like(hist)) / input.size(1)
+
+
+######################################################################
+# Name:
+# Description:
+######################################################################
+def create_gif(list_of_img_path , save_dst) :
+    frames = []
+    index = 0
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    bottomLeftCornerOfText = (2, 25)
+    fontScale = 0.5
+    fontColor = (0, 128, 0)  # dark green, should be visible on most skin colors
+    lineType = 2
+
+    for path in list_of_img_path:
+        image = cv2.imread(path)
+        cv2.putText(
+            image,
+            '{}, {}'.format("Image index: ", index),
+            bottomLeftCornerOfText,
+            font,
+            fontScale,
+            fontColor,
+            lineType,
+        )
+
+        # Save image
+        name = os.path.join(save_dst , "img_out_"+str(index)+'.jpeg')
+        cv2.imwrite( name , image)
+        frame = cv2.imread(name)
+        frames.append(frame)
+        gif_path = os.path.join(save_dst , 'movie_'+str(index)+'.gif')
+        kargs = {'duration': 1}
+        imageio.mimsave(gif_path, frames, 'GIF', **kargs)
+        index += 1

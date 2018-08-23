@@ -24,6 +24,10 @@ import scipy.stats as stats
 import cv2
 
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
@@ -61,6 +65,7 @@ class Encoder(nn.Module):
             ('tanh_1', nn.Tanh())  # normalize to [-1, 1] range
         ]))
 
+
     def _compress(self, x):
         return x.view(x.size(0), -1)
 
@@ -76,6 +81,10 @@ class Encoder(nn.Module):
         return out
 
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 class DiscriminatorZ(nn.Module):
     def __init__(self):
         super(DiscriminatorZ, self).__init__()
@@ -107,6 +116,10 @@ class DiscriminatorZ(nn.Module):
         return out
 
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 class DiscriminatorImg(nn.Module):
     def __init__(self):
         super(DiscriminatorImg, self).__init__()
@@ -167,6 +180,10 @@ class DiscriminatorImg(nn.Module):
         return out
 
 
+######################################################################
+# Name:
+# Description:
+######################################################################
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
@@ -220,7 +237,10 @@ class Generator(nn.Module):
             #print(out.shape)
         return out
 
-
+######################################################################
+# Name:
+# Description:
+######################################################################
 class Net(object):
     def __init__(self):
         self.E = Encoder()
@@ -346,7 +366,6 @@ class Net(object):
         paths_for_gif = []
 
 
-
         for epoch in range(1, epochs + 1):
             where_to_save_epoch = os.path.join(where_to_save , "epoch" + str(epoch))
             if not os.path.exists(where_to_save_epoch):
@@ -451,6 +470,8 @@ class Net(object):
                 loss = l1_loss(validate_images, generated)
                 file_name = os.path.join(where_to_save_epoch , 'onesided_' + str(epoch) +'.png' )
                 save_image_normalized(tensor=generated, filename=file_name , nrow=8)
+                paths_for_gif.append(file_name)
+                create_gif(paths_for_gif , where_to_save_epoch)
 
                 losses['valid'].append(loss.item())
 
