@@ -334,9 +334,9 @@ def mean(l):
 from sklearn.metrics.regression import mean_squared_error as mse
 def uni_loss(input):
     assert len(input.shape) == 2
-    hist = torch.histc(input=input, bins=input.size(1), min=-1, max=1)
-    bin_avg_value = input.size(0)
-    return mse(hist, bin_avg_value * torch.ones_like(hist)) / input.size(1)
+    batch_size, input_size = input.size()
+    hist = torch.histc(input=input, bins=input_size, min=-1, max=1)
+    return mse(hist, batch_size * torch.ones_like(hist)) / input_size
 
 
 ######################################################################
