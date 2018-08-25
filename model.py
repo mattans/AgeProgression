@@ -181,26 +181,27 @@ class Generator(nn.Module):
 
         self.deconv_layers = nn.ModuleList()
 
-        def add_deconv(module_list, name, in_ch, out_ch, kernel, stride, act_fn):
+        def add_deconv(module_list, name, i ,o, krnl, strd, padd, actf):
             return module_list.add_module(
                 name,
                 nn.Sequential(
                     nn.ConvTranspose2d(
-                        in_channels=in_ch,
-                        out_channels=out_ch,
-                        kernel_size=kernel,
-                        stride=stride,
+                        in_channels=i,
+                        out_channels=o,
+                        kernel_size=krnl,
+                        stride=strd,
+                        padding=padd,
                     ),
-                    act_fn
+                    actf
                 )
             )
 
-        add_deconv(self.deconv_layers, 'g_deconv_1', in_ch=1024, out_ch=1024, kernel=2, stride=2, act_fn=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_2', in_ch=1024, out_ch=512, kernel=2, stride=2, act_fn=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_3', in_ch=512, out_ch=256, kernel=2, stride=2, act_fn=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_4', in_ch=256, out_ch=128, kernel=2, stride=2, act_fn=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_5', in_ch=128, out_ch=3, kernel=1, stride=1, act_fn=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_6', in_ch=3, out_ch=3, kernel=1, stride=1, act_fn=nn.Tanh())
+        add_deconv(self.deconv_layers, 'g_deconv_1', i=1024, o=1024, krnl=2, strd=2, padd=0, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_2', i=1024, o=512, krnl=2, strd=2, padd=0, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_3', i=512, o=256, krnl=2, strd=2, padd=0, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_4', i=256, o=128, krnl=2, strd=2, padd=0, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_5', i=128, o=3, krnl=1, strd=1, padd=0, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_6', i=3, o=3, krnl=3, strd=1, padd=1, actf=nn.Tanh())
 
     def _decompress(self, x):
         return x.view(x.size(0), 1024, 8, 8)  # TODO - replace hardcoded
@@ -368,15 +369,17 @@ class Net(object):
                 # Input\Output Loss
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)
-                eg_loss = l1_loss(generated, images)
+                eg_loss = mse_loss(generated, images)
                 losses['eg'].append(eg_loss.item())
 
                 # Total Variance Regularization Loss
-                reg = (
-                        torch.sum(torch.abs(generated[:, :, :, :-1] - generated[:, :, :, 1:])) +
-                        torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
-                ) / float(generated.size(0))
-                reg_loss = 0.000 * l1_loss(reg, torch.zeros_like(reg))
+                reg = l1_loss(generated[:, :, :, :-1], generated[:, :, :, 1:]) + l1_loss(generated[:, :, :-1, :], generated[:, :, 1:, :])
+
+                #reg = (
+                #        torch.sum(torch.abs(generated[:, :, :, :-1] - generated[:, :, :, 1:])) +
+                #        torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
+                #) / float(generated.size(0))
+                reg_loss = 0 * reg
                 reg_loss.to(self.device)
                 losses['reg'].append(reg_loss.item())
 
@@ -391,7 +394,7 @@ class Net(object):
 
 
                 # Encoder\DiscriminatorZ Loss
-                ez_loss = 0.001 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
+                ez_loss = 0.01 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
                 ez_loss.to(self.device)
                 losses['ez'].append(ez_loss.item())
 
@@ -401,11 +404,11 @@ class Net(object):
 
                 di_input_loss = bce_with_logits_loss(d_i_input, torch.ones_like(d_i_input))
                 di_output_loss = bce_with_logits_loss(d_i_output, torch.zeros_like(d_i_output))
-                di_loss_tot = 0.1 * (di_input_loss + di_output_loss)
+                di_loss_tot = (di_input_loss + di_output_loss)
                 losses['di'].append(di_loss_tot.item())
 
                 # Generator\DiscriminatorImg Loss
-                dg_loss = 0.001 * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
+                dg_loss = 0.01 * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
                 losses['dg'].append(dg_loss.item())
 
                 losses['uni_diff'] = uni_loss(z.cpu().detach()) - uni_loss(z_prior.cpu().detach())
@@ -451,7 +454,7 @@ class Net(object):
                 z_l = torch.cat((z, validate_labels), 1)
                 generated = self.G(z_l)
 
-                loss = l1_loss(validate_images, generated)
+                loss = mse_loss(validate_images, generated)
                 file_name = os.path.join(where_to_save_epoch , 'onesided_' + str(epoch) +'.png' )
                 save_image_normalized(tensor=generated, filename=file_name , nrow=8)
 
@@ -527,8 +530,11 @@ class Net(object):
                     torch.save(state_dict, fname)
                     saved.append(class_attr_name)
 
-        print("Saved {} to {}".format(', '.join(saved) or 'nothing', path))
-        return path
+        if saved:
+            print("Saved {} to {}".format(', '.join(saved) or 'nothing', path))
+            return path
+        else:
+            raise FileNotFoundError()
 
     def load(self, path):
         """Load all state dicts of Net's components.
@@ -543,6 +549,9 @@ class Net(object):
                 if hasattr(class_attr, 'load_state_dict') and os.path.exists(fname):
                     class_attr.load_state_dict(torch.load(fname)())
                     loaded.append(class_attr_name)
-        print("Loaded {} from {}".format(', '.join(loaded), path))
+        if loaded:
+            print("Loaded {} from {}".format(', '.join(loaded), path))
+        else:
+            raise FileNotFoundError()
 
 

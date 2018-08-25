@@ -117,6 +117,10 @@ if __name__ == '__main__':
         net.load(args.load)
 
         results_dest = args.output or utils.default_test_results_dir()
+        try:
+            os.makedirs(results_dest)
+        except:
+            pass
 
         img = utils.pil_to_model_tensor_transform(pil_loader(args.input)) #Covert path to image (pil_loader)
         if not args.cpu and torch.cuda.is_available():

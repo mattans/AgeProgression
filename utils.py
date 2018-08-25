@@ -143,8 +143,8 @@ def optimizer_and_criterion(criter_class, optim_class, *modules, **optim_args):
 fmt_t = "%H_%M"
 fmt = "%Y_%m_%d"
 
-def default_train_results_dir(eval=True):
-    return os.path.join('.', 'trained_models', datetime.datetime.now().strftime(fmt) if eval else fmt)
+def default_train_results_dir():
+    return os.path.join('.', 'trained_models', datetime.datetime.now().strftime(fmt), datetime.datetime.now().strftime(fmt_t))
 
 def default_where_to_save(eval=True):
     path_str = os.path.join('.', 'results', datetime.datetime.now().strftime(fmt), datetime.datetime.now().strftime(fmt_t))
@@ -217,9 +217,8 @@ class LossTracker(object):
         plt.ylabel('Averaged loss')
         plt.title('Losses by epoch')
         plt.grid(True)
-        if self.graphic:
-            plt.draw()
-            plt.pause(0.001)
+        plt.draw()
+        plt.pause(0.001)
 
     @staticmethod
     def show():
