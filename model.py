@@ -306,9 +306,9 @@ class Net(object):
             valid_size=None,
     ):
         eq_loss_factor = 1
-        ez_loss_factor = 0.0017
-        di_tot_loss_factor = 0.005
-        dg_loss_factor = 0.0015
+        ez_loss_factor = 0.34
+        di_tot_loss_factor = 0.75
+        dg_loss_factor = 0.12
         reg_loss_factor = 0
         where_to_save = default_where_to_save()
         if not os.path.exists(where_to_save):
@@ -364,72 +364,81 @@ class Net(object):
                 labels = labels.to(device=self.device)
                 # print ("DEBUG: iteration: "+str(i)+" images shape: "+str(images.shape))
                 z = self.E(images)
+                if(epoch < 2):
+                    generated = self.G(z)
+                    eg_loss = mse_loss(generated, images)
+                    losses['eg'].append(eg_loss.item())
+                    # Back prop on Encoder\Generator
+                    self.eg_optimizer.zero_grad()
+                    loss = eq_loss_factor * eg_loss
+                    loss.backward(retain_graph=True)
+                    self.eg_optimizer.step()
+                else:
+                    # Input\Output Loss
+                    z_l = torch.cat((z, labels), 1)
+                    generated = self.G(z_l)
+                    eg_loss = mse_loss(generated, images)
+                    losses['eg'].append(eg_loss.item())
 
-                # Input\Output Loss
-                z_l = torch.cat((z, labels), 1)
-                generated = self.G(z_l)
-                eg_loss = mse_loss(generated, images)
-                losses['eg'].append(eg_loss.item())
+                    # Total Variance Regularization Loss
+                    reg = (
+                            torch.sum(torch.abs(generated[:, :, :, :-1] - generated[:, :, :, 1:])) +
+                            torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
+                    ) / float(generated.size(0))
+                    reg_loss = reg_loss_factor * l1_loss(reg, torch.zeros_like(reg))
+                    reg_loss.to(self.device)
+                    losses['reg'].append(reg_loss.item())
 
-                # Total Variance Regularization Loss
-                reg = (
-                        torch.sum(torch.abs(generated[:, :, :, :-1] - generated[:, :, :, 1:])) +
-                        torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
-                ) / float(generated.size(0))
-                reg_loss = reg_loss_factor * l1_loss(reg, torch.zeros_like(reg))
-                reg_loss.to(self.device)
-                losses['reg'].append(reg_loss.item())
-
-                # DiscriminatorZ Loss
-                z_prior = two_sided(torch.rand_like(z, device=self.device))  # [-1 : 1]
-                d_z_prior = self.Dz(z_prior)
-                d_z = self.Dz(z)
-                dz_loss_prior = bce_with_logits_loss(d_z_prior, torch.ones_like(d_z_prior))
-                dz_loss = bce_with_logits_loss(d_z, torch.zeros_like(d_z))
-                dz_loss_tot = (dz_loss + dz_loss_prior)
-                losses['dz'].append(dz_loss_tot.item())
-
-
-
-
-                # Encoder\DiscriminatorZ Loss
-                ez_loss = ez_loss_factor * bce_with_logits_loss(d_z, torch.ones_like(d_z))
-                ez_loss.to(self.device)
-                losses['ez'].append(ez_loss.item())
-
-                # DiscriminatorImg Loss
-                d_i_input = self.Dimg(images, labels, self.device)
-                d_i_output = self.Dimg(generated, labels, self.device)
-
-                di_input_loss = bce_with_logits_loss(d_i_input, torch.ones_like(d_i_input))
-                di_output_loss = bce_with_logits_loss(d_i_output, torch.zeros_like(d_i_output))
-                di_loss_tot = di_tot_loss_factor * (di_input_loss + di_output_loss)
-                losses['di'].append(di_loss_tot.item())
-
-                # Generator\DiscriminatorImg Loss
-                dg_loss = dg_loss_factor * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
-                losses['dg'].append(dg_loss.item())
-
-                losses['uni_diff'] = uni_loss(z.cpu().detach()) - uni_loss(z_prior.cpu().detach())
+                    # DiscriminatorZ Loss
+                    z_prior = two_sided(torch.rand_like(z, device=self.device))  # [-1 : 1]
+                    d_z_prior = self.Dz(z_prior)
+                    d_z = self.Dz(z)
+                    dz_loss_prior = bce_with_logits_loss(d_z_prior, torch.ones_like(d_z_prior))
+                    dz_loss = bce_with_logits_loss(d_z, torch.zeros_like(d_z))
+                    dz_loss_tot = (dz_loss + dz_loss_prior)
+                    losses['dz'].append(dz_loss_tot.item())
 
 
-                # Start back propagation
 
-                # Back prop on Encoder\Generator
-                self.eg_optimizer.zero_grad()
-                loss = eq_loss_factor * eg_loss + reg_loss + ez_loss + dg_loss
-                loss.backward(retain_graph=True)
-                self.eg_optimizer.step()
 
-                # Back prop on DiscriminatorZ
-                self.dz_optimizer.zero_grad()
-                dz_loss_tot.backward(retain_graph=True)
-                self.dz_optimizer.step()
+                    # Encoder\DiscriminatorZ Loss
+                    ez_loss = ez_loss_factor * bce_with_logits_loss(d_z, torch.ones_like(d_z))
+                    ez_loss.to(self.device)
+                    losses['ez'].append(ez_loss.item())
 
-                # Back prop on DiscriminatorImg
-                self.di_optimizer.zero_grad()
-                di_loss_tot.backward()
-                self.di_optimizer.step()
+                    # DiscriminatorImg Loss
+                    d_i_input = self.Dimg(images, labels, self.device)
+                    d_i_output = self.Dimg(generated, labels, self.device)
+
+                    di_input_loss = bce_with_logits_loss(d_i_input, torch.ones_like(d_i_input))
+                    di_output_loss = bce_with_logits_loss(d_i_output, torch.zeros_like(d_i_output))
+                    di_loss_tot = di_tot_loss_factor * (di_input_loss + di_output_loss)
+                    losses['di'].append(di_loss_tot.item())
+
+                    # Generator\DiscriminatorImg Loss
+                    dg_loss = dg_loss_factor * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
+                    losses['dg'].append(dg_loss.item())
+
+                    losses['uni_diff'] = uni_loss(z.cpu().detach()) - uni_loss(z_prior.cpu().detach())
+
+
+                    # Start back propagation
+
+                    # Back prop on Encoder\Generator
+                    self.eg_optimizer.zero_grad()
+                    loss = eq_loss_factor * eg_loss + reg_loss + ez_loss + dg_loss
+                    loss.backward(retain_graph=True)
+                    self.eg_optimizer.step()
+
+                    # Back prop on DiscriminatorZ
+                    self.dz_optimizer.zero_grad()
+                    dz_loss_tot.backward(retain_graph=True)
+                    self.dz_optimizer.step()
+
+                    # Back prop on DiscriminatorImg
+                    self.di_optimizer.zero_grad()
+                    di_loss_tot.backward()
+                    self.di_optimizer.step()
 
                 now = datetime.datetime.now()
 
@@ -440,7 +449,8 @@ class Net(object):
                     print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
 
                     cp_path = self.save(where_to_save_epoch)
-                    loss_tracker.save(os.path.join(cp_path, 'losses.png'))
+                    if(epoch>=2):
+                        loss_tracker.save(os.path.join(cp_path, 'losses.png'))
 
                 save_count += 1
             cp_path = self.save(where_to_save_epoch)
