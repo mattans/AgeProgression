@@ -60,12 +60,22 @@ if __name__ == '__main__':
     )
     parser.add_argument('--output', '-o', default='')
     args = parser.parse_args()
+    results_dest = args.output or utils.default_train_results_dir()
+
+    path_results_str = os.path.join(results_dest, 'results')
 
     try:
         os.remove(r'results/log_results.log')
     except OSError:
         pass
-    logging.basicConfig(filename=r'results/log_results.log', level=logging.DEBUG)
+
+    try:
+        os.remove(os.path.join(path_results_str, 'log_results.log'))
+    except:
+        if not os.path.exists(path_results_str):
+            os.makedirs(path_results_str)
+
+    logging.basicConfig(filename=os.path.join(path_results_str, 'log_results.log'), level=logging.DEBUG)
 
     net = model.Net()
     if args.cpu:  # force usage of cpu even if cuda is available (can be faster for testing)
@@ -79,21 +89,15 @@ if __name__ == '__main__':
 
         data_src = args.input or os.path.join('.', 'data', 'UTKFace')
         print("Data folder is {}".format(data_src))
-        results_dest = args.output or utils.default_train_results_dir()
+
         print("Results folder is {}".format(results_dest))
 
         #Create info text file besides the epochs directories
         with open(os.path.join(results_dest , 'session_arguments.txt'), 'a') as info_file:
             info_file.write(' '.join(sys.argv))
 
-        path_str = os.path.join(results_dest, 'results')
-        try:
-            os.remove(os.path.join(path_str, 'log_results.log'))
-        except:
-            if not os.path.exists(path_str):
-                os.makedirs(path_str)
 
-        logging.basicConfig(filename=os.path.join(path_str , 'log_results.log'), level=logging.DEBUG)
+        logging.basicConfig(filename=os.path.join(path_results_str , 'log_results.log'), level=logging.DEBUG)
 
 
         net.teach(
