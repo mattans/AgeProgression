@@ -73,6 +73,10 @@ if __name__ == '__main__':
 
     if args.mode == 'train':
 
+        betas = (args.b1, args.b2) if args.load is None else None
+        weight_decay = args.weight_decay if args.load is None else None
+        lr = args.lr if args.load is None else None
+
         if args.load is not None:
             net.load(args.load)
             print("Loading pre-trained models from {}".format(args.load))
@@ -100,10 +104,10 @@ if __name__ == '__main__':
         net.teach(
             utkface_path=data_src,
             batch_size=args.batch_size,
-            betas=(args.b1, args.b2),
+            betas=betas,
             epochs=args.epochs,
-            weight_decay=args.weight_decay,
-            lr=args.lr,
+            weight_decay=weight_decay,
+            lr=lr,
             should_plot=args.sp,
             where_to_save=results_dest,
             models_saving=args.models_saving

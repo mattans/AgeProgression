@@ -32,7 +32,7 @@ class Encoder(nn.Module):
 
         self.conv_layers = nn.ModuleList()
 
-        def add_conv(module_list, name, in_ch, out_ch, kernel, stride, act_fn):
+        def add_conv(module_list, name, in_ch, out_ch, kernel, stride, padding, act_fn):
             return module_list.add_module(
                 name,
                 nn.Sequential(
@@ -46,16 +46,16 @@ class Encoder(nn.Module):
                 )
             )
 
-        add_conv(self.conv_layers, 'e_conv_1', in_ch=3, out_ch=64, kernel=2, stride=2, act_fn=nn.ReLU())
-        add_conv(self.conv_layers, 'e_conv_2', in_ch=64, out_ch=128, kernel=2, stride=2, act_fn=nn.ReLU())
-        add_conv(self.conv_layers, 'e_conv_3', in_ch=128, out_ch=256, kernel=2, stride=2, act_fn=nn.ReLU())
-        add_conv(self.conv_layers, 'e_conv_4', in_ch=256, out_ch=512, kernel=2, stride=2, act_fn=nn.ReLU())
-        add_conv(self.conv_layers, 'e_conv_5', in_ch=512, out_ch=1024, kernel=2, stride=2, act_fn=nn.ReLU())
+        add_conv(self.conv_layers, 'e_conv_1', in_ch=3, out_ch=64, kernel=5, stride=2, padding=2, act_fn=nn.ReLU())
+        add_conv(self.conv_layers, 'e_conv_2', in_ch=64, out_ch=128, kernel=5, stride=2, padding=2, act_fn=nn.ReLU())
+        add_conv(self.conv_layers, 'e_conv_3', in_ch=128, out_ch=256, kernel=5, stride=2, padding=2, act_fn=nn.ReLU())
+        add_conv(self.conv_layers, 'e_conv_4', in_ch=256, out_ch=512, kernel=5, stride=2, padding=2, act_fn=nn.ReLU())
+        add_conv(self.conv_layers, 'e_conv_5', in_ch=512, out_ch=1024, kernel=5, stride=2, padding=2, act_fn=nn.ReLU())
 
 
         self.fc_layer = nn.Sequential(OrderedDict([
             ('e_fc_1', nn.Linear(
-                in_features=1024*4*4,
+                in_features=1024,
                 out_features=consts.NUM_Z_CHANNELS
             )),
             ('tanh_1', nn.Tanh())  # normalize to [-1, 1] range
@@ -173,35 +173,38 @@ class Generator(nn.Module):
         num_deconv_layers = 5
         mini_size = 8
         self.fc = nn.Sequential(
-            nn.Linear(consts.NUM_Z_CHANNELS + consts.NUM_AGES + consts.NUM_GENDERS,
-                      consts.NUM_GEN_CHANNELS * mini_size ** 2),
+            nn.Linear(
+                consts.NUM_Z_CHANNELS + consts.NUM_AGES + consts.NUM_GENDERS,
+                consts.NUM_GEN_CHANNELS * mini_size ** 2
+            ),
             nn.ReLU()
         )
         # need to reshape now to ?,1024,8,8
 
         self.deconv_layers = nn.ModuleList()
 
-        def add_deconv(module_list, name, i ,o, krnl, strd, padd, actf):
+        def add_deconv(module_list, name, in_dims, out_dims, kernel, stride, actf):
             return module_list.add_module(
                 name,
                 nn.Sequential(
-                    nn.ConvTranspose2d(
-                        in_channels=i,
-                        out_channels=o,
-                        kernel_size=krnl,
-                        stride=strd,
-                        padding=padd,
+                    DeConv2dLikeTF(
+                        in_dims=in_dims,
+                        out_dims=out_dims,
+                        kernel=kernel,
+                        stride=stride,
                     ),
                     actf
                 )
             )
 
-        add_deconv(self.deconv_layers, 'g_deconv_1', i=1024, o=1024, krnl=2, strd=2, padd=0, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_2', i=1024, o=512, krnl=2, strd=2, padd=0, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_3', i=512, o=256, krnl=2, strd=2, padd=0, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_4', i=256, o=128, krnl=2, strd=2, padd=0, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_5', i=128, o=3, krnl=1, strd=1, padd=0, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_6', i=3, o=3, krnl=3, strd=1, padd=1, actf=nn.Tanh())
+        # add_deconv(self.deconv_layers, 'g_deconv_1', i=1024, o=1024, krnl=5, strd=2, padd=4, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_1', in_dims=(1024, 8, 8), out_dims=(512, 16, 16), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_2', in_dims=(512, 16, 16), out_dims=(256, 32, 32), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_3', in_dims=(256, 32, 32), out_dims=(128, 64, 64), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_4', in_dims=(128, 64, 64), out_dims=(64, 128, 128), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_5', in_dims=(64, 128, 128), out_dims=(32, 256, 256), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_6', in_dims=(32, 256, 256), out_dims=(16, 128, 128), kernel=5, stride=1, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_7', in_dims=(16, 128, 128), out_dims=(3, 128, 128), kernel=1, stride=1, actf=nn.Tanh())
 
     def _decompress(self, x):
         return x.view(x.size(0), 1024, 8, 8)  # TODO - replace hardcoded
@@ -215,7 +218,9 @@ class Generator(nn.Module):
             out = torch.cat((out, label), 1)  # z_l
         #print(out.shape)
         out = self.fc(out)
+        #print(out.shape)
         out = self._decompress(out)
+        #print(out.shape)
         for i, deconv_layer in enumerate(self.deconv_layers, 1):
             out = deconv_layer(out)
             #print(out.shape)
@@ -269,7 +274,8 @@ class Net(object):
 
         generated = self.G(z_l)
 
-        img_tensor = img_tensor.transpose(0, 1).transpose(1, 2) #Dimenssion transform
+        # img_tensor = img_tensor.transpose(0, 1).transpose(1, 2) #Dimenssion transform
+        img_tensor = img_tensor.permute(1, 2, 0) #Dimenssion transform
         img_tensor = 255 * one_sided(img_tensor.numpy())
         img_tensor = np.ascontiguousarray(img_tensor, dtype=np.uint8)
 
@@ -289,7 +295,8 @@ class Net(object):
 
         )
         img_tensor = two_sided(torch.from_numpy(img_tensor / 255.0)).float()
-        img_tensor = img_tensor.transpose(0, 1).transpose(0, 2)
+        # img_tensor = img_tensor.transpose(0, 1).transpose(0, 2)
+        img_tensor = img_tensor.permute(2, 0, 1)
 
         joined = torch.cat((img_tensor.unsqueeze(0), generated), 0) # Conver one image to 1 sized batch
 
@@ -309,38 +316,23 @@ class Net(object):
             models_saving='always',
     ):
         where_to_save = where_to_save or default_where_to_save()
-        train_dataset = get_utkface_dataset(utkface_path)
-        valid_dataset = get_utkface_dataset(utkface_path)
-        dset_size = len(train_dataset)
-        indices = list(range(dset_size))
-        # split = int(np.floor(valid_size * dset_size))
+        dataset = get_utkface_dataset(utkface_path)
         valid_size = valid_size or batch_size
-        split = int(np.floor(valid_size))
-        # np.random.seed(random_seed)
-        np.random.shuffle(indices)
-        train_idx, valid_idx = indices[split:], indices[:split]
-        train_sampler = SubsetRandomSampler(train_idx)
-        valid_sampler = SubsetRandomSampler(valid_idx)
+        valid_dataset, train_dataset = torch.utils.data.random_split(dataset, (valid_size, len(dataset) - valid_size))
 
-        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, sampler=train_sampler)
-        valid_loader = DataLoader(dataset=valid_dataset, batch_size=batch_size, sampler=valid_sampler)
-        idx_to_class = {v: k for k, v in train_dataset.class_to_idx.items()}
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+        valid_loader = DataLoader(dataset=valid_dataset, batch_size=batch_size, shuffle=False)
+        idx_to_class = {v: k for k, v in dataset.class_to_idx.items()}
 
-        validate_images = None
-        validate_labels = None
-        for ii, (images, labels) in enumerate(valid_loader, 1):
-            validate_images = images.to(device=self.device)
-            labels = torch.stack(
-                [str_to_tensor(idx_to_class[l]).to(device=self.device) for l in list(labels.numpy())])
-            validate_labels = labels.to(device=self.device)
+        input_output_loss = mse_loss
 
-        save_image_normalized(tensor=validate_images, filename=where_to_save+"/base.png")
+        # save_image_normalized(tensor=validate_images, filename=where_to_save+"/base.png")
 
         for optimizer in (self.eg_optimizer, self.dz_optimizer, self.di_optimizer):
             for param in ('weight_decay', 'betas', 'lr'):
-                optimizer.param_groups[0][param] = locals()[param]
-
-        #  TODO - write a txt file with all arguments to results folder
+                val = locals()[param]
+                if val is not None:
+                    optimizer.param_groups[0][param] = val
 
         loss_tracker = LossTracker('train', 'valid', 'dz', 'reg', 'ez', 'dimg', should_plot)
         where_to_save_epoch = ""
@@ -369,7 +361,7 @@ class Net(object):
                 # Input\Output Loss
                 z_l = torch.cat((z, labels), 1)
                 generated = self.G(z_l)
-                eg_loss = mse_loss(generated, images)
+                eg_loss = input_output_loss(generated, images)
                 losses['eg'].append(eg_loss.item())
 
                 # Total Variance Regularization Loss
@@ -448,17 +440,26 @@ class Net(object):
             cp_path = self.save(where_to_save_epoch)
             with torch.no_grad():  # validation
 
-                self.eval()  # move to eval mode
+                for ii, (images, labels) in enumerate(valid_loader, 1):
+                    images = images.to(device=self.device)
+                    labels = torch.stack(
+                        [str_to_tensor(idx_to_class[l]).to(device=self.device) for l in list(labels.numpy())])
+                    validate_labels = labels.to(device=self.device)
 
-                z = self.E(validate_images)
-                z_l = torch.cat((z, validate_labels), 1)
-                generated = self.G(z_l)
+                    self.eval()  # move to eval mode
 
-                loss = mse_loss(validate_images, generated)
-                file_name = os.path.join(where_to_save_epoch , 'onesided_' + str(epoch) +'.png' )
-                save_image_normalized(tensor=generated, filename=file_name , nrow=8)
+                    z = self.E(images)
+                    z_l = torch.cat((z, validate_labels), 1)
+                    generated = self.G(z_l)
 
-                losses['valid'].append(loss.item())
+                    loss = input_output_loss(images, generated)
+
+                    joined = torch.cat((generated, images), 0)  # Conver one image to 1 sized batch
+
+                    file_name = os.path.join(where_to_save_epoch , 'onesided_' + str(epoch) +'.png' )
+                    save_image_normalized(tensor=generated, filename=file_name, nrow=8)
+
+                    losses['valid'].append(loss.item())
 
 
             # print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)

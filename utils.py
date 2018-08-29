@@ -50,7 +50,7 @@ pil_to_model_tensor_transform = transforms.Compose(
     [
         transforms.Resize(size=(128, 128)),
         transforms.ToTensor(),
-        transforms.Lambda(lambda x: 2 * x - 1)  # [0:1] -> [-1:1]
+        transforms.Lambda(lambda t: t.mul(2).sub(1))  # Tensor elements domain: [0:1] -> [-1:1]
     ]
 )
 
@@ -145,6 +145,7 @@ fmt = "%Y_%m_%d"
 
 def default_train_results_dir():
     return os.path.join('.', 'trained_models', datetime.datetime.now().strftime(fmt), datetime.datetime.now().strftime(fmt_t))
+
 
 def default_where_to_save(eval=True):
     path_str = os.path.join('.', 'results', datetime.datetime.now().strftime(fmt), datetime.datetime.now().strftime(fmt_t))
@@ -271,3 +272,43 @@ def uni_loss(input):
     batch_size, input_size = input.size()
     hist = torch.histc(input=input, bins=input_size, min=-1, max=1)
     return mse(hist, batch_size * torch.ones_like(hist)) / input_size
+
+
+class DeConv2dLikeTF(torch.nn.ConvTranspose2d):
+    def __init__(self, in_dims, out_dims, kernel, stride=1, groups=1, bias=True, dilation=1):
+        if isinstance(kernel, int):
+            kernel = (kernel, kernel)
+        if isinstance(stride, int):
+            stride = (stride, stride)
+
+        c_in, h_in, w_in = in_dims
+        c_out, h_out, w_out = out_dims
+
+        padding = [0, 0]
+        output_padding = [0, 0]
+
+        lhs_0 = -h_out + (h_in - 1) * stride[0] + kernel[0]  # = 2p[0] - o[0]
+        if lhs_0 % 2 == 0:
+            padding[0] = lhs_0 // 2
+        else:
+            padding[0] = lhs_0 // 2 + 1
+            output_padding[0] = 1
+
+        lhs_1 = -w_out + (w_in - 1) * stride[1] + kernel[1]  # = 2p[1] - o[1]
+        if lhs_1 % 2 == 0:
+            padding[1] = lhs_1 // 2
+        else:
+            padding[1] = lhs_1 // 2 + 1
+            output_padding[1] = 1
+
+        super(DeConv2dLikeTF, self).__init__(
+            in_channels=c_in,
+            out_channels=c_out,
+            kernel_size=kernel,
+            stride=stride,
+            padding=tuple(padding),
+            output_padding=tuple(output_padding),
+            groups=groups,
+            bias=bias,
+            dilation=dilation
+        )
