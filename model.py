@@ -52,14 +52,14 @@ class Encoder(nn.Module):
         add_conv(self.conv_layers, 'e_conv_4', in_ch=256, out_ch=512, kernel=5, stride=2, padding=2, act_fn=nn.ReLU())
         add_conv(self.conv_layers, 'e_conv_5', in_ch=512, out_ch=1024, kernel=5, stride=2, padding=2, act_fn=nn.ReLU())
 
-
-        self.fc_layer = nn.Sequential(OrderedDict([
-            ('e_fc_1', nn.Linear(
-                in_features=1024,
-                out_features=consts.NUM_Z_CHANNELS
-            )),
-            ('tanh_1', nn.Tanh())  # normalize to [-1, 1] range
-        ]))
+        self.fc_layer = nn.Sequential(
+            OrderedDict(
+                [
+                    ('e_fc_1', nn.Linear(in_features=1024, out_features=consts.NUM_Z_CHANNELS)),
+                    ('tanh_1', nn.Tanh())  # normalize to [-1, 1] range
+                ]
+            )
+        )
 
     def _compress(self, x):
         return x.view(x.size(0), -1)
@@ -110,7 +110,7 @@ class DiscriminatorZ(nn.Module):
 class DiscriminatorImg(nn.Module):
     def __init__(self):
         super(DiscriminatorImg, self).__init__()
-        in_dims = (3, 16 + consts.NUM_AGES + consts.NUM_GENDERS, 32, 64)
+        in_dims = (3, 16 + consts.LABEL_LEN_EXPANDED, 32, 64)
         out_dims = (16, 32, 64, 128)
         self.conv_layers = nn.ModuleList()
         self.fc_layers = nn.ModuleList()
@@ -174,7 +174,7 @@ class Generator(nn.Module):
         mini_size = 8
         self.fc = nn.Sequential(
             nn.Linear(
-                consts.NUM_Z_CHANNELS + consts.NUM_AGES + consts.NUM_GENDERS,
+                consts.NUM_Z_CHANNELS + consts.LABEL_LEN_EXPANDED,
                 consts.NUM_GEN_CHANNELS * mini_size ** 2
             ),
             nn.ReLU()
@@ -262,7 +262,7 @@ class Net(object):
 
         gender_tensor = -torch.ones(consts.NUM_GENDERS)
         gender_tensor[int(gender)] *= -1
-        gender_tensor = gender_tensor.repeat(consts.NUM_AGES, 1)  # apply gender on all images
+        gender_tensor = gender_tensor.repeat(consts.NUM_AGES, consts.NUM_AGES // consts.NUM_GENDERS)  # apply gender on all images
 
         age_tensor = -torch.ones(consts.NUM_AGES, consts.NUM_AGES)
         for i in range(consts.NUM_AGES):
@@ -324,7 +324,7 @@ class Net(object):
         valid_loader = DataLoader(dataset=valid_dataset, batch_size=batch_size, shuffle=False)
         idx_to_class = {v: k for k, v in dataset.class_to_idx.items()}
 
-        input_output_loss = mse_loss
+        input_output_loss = l1_loss
 
         # save_image_normalized(tensor=validate_images, filename=where_to_save+"/base.png")
 
@@ -347,13 +347,11 @@ class Net(object):
                 os.makedirs(where_to_save_epoch)
             paths_for_gif.append(where_to_save_epoch)
             losses = defaultdict(lambda: [])
+            self.train()  # move to train mode
             for i, (images, labels) in enumerate(train_loader, 1):
 
-                self.train()  # move to train mode
-
                 images = images.to(device=self.device)
-                labels = torch.stack([str_to_tensor(idx_to_class[l]).to(device=self.device)
-                                      for l in list(labels.numpy())])  # todo - can remove list() ?
+                labels = torch.stack([str_to_tensor(idx_to_class[l], normalize=True) for l in list(labels.numpy())])  # todo - can remove list() ?
                 labels = labels.to(device=self.device)
                 # print ("DEBUG: iteration: "+str(i)+" images shape: "+str(images.shape))
                 z = self.E(images)
@@ -386,7 +384,7 @@ class Net(object):
 
 
                 # Encoder\DiscriminatorZ Loss
-                ez_loss = 0.01 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
+                ez_loss = 0 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
                 ez_loss.to(self.device)
                 losses['ez'].append(ez_loss.item())
 
@@ -400,7 +398,7 @@ class Net(object):
                 losses['di'].append(di_loss_tot.item())
 
                 # Generator\DiscriminatorImg Loss
-                dg_loss = 0.01 * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
+                dg_loss = 0.0001 * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
                 losses['dg'].append(dg_loss.item())
 
                 losses['uni_diff'] = uni_loss(z.cpu().detach()) - uni_loss(z_prior.cpu().detach())
@@ -426,27 +424,20 @@ class Net(object):
 
                 now = datetime.datetime.now()
 
-                if save_count % 500 == 0:
-                    save_count = 0
-                    logging.info('[{h}:{m}[Epoch {e}, i: {c}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, c=i,
-                                                                                t=loss.item()))
-                    print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
+            logging.info('[{h}:{m}[Epoch {e}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, t=loss.item()))
+            print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
+            to_save_models = models_saving == 'always'
+            cp_path = self.save(where_to_save_epoch, to_save_models=to_save_models)
+            loss_tracker.save(os.path.join(cp_path, 'losses.png'))
 
-                    to_save_models = models_saving == 'always'
-                    cp_path = self.save(where_to_save_epoch, to_save_models=to_save_models)
-                    loss_tracker.save(os.path.join(cp_path, 'losses.png'))
-
-                save_count += 1
-            cp_path = self.save(where_to_save_epoch)
             with torch.no_grad():  # validation
+                self.eval()  # move to eval mode
 
                 for ii, (images, labels) in enumerate(valid_loader, 1):
                     images = images.to(device=self.device)
-                    labels = torch.stack(
-                        [str_to_tensor(idx_to_class[l]).to(device=self.device) for l in list(labels.numpy())])
+                    labels = torch.stack([str_to_tensor(idx_to_class[l], normalize=True) for l in list(labels.numpy())])
+                    labels = labels.to(self.device)
                     validate_labels = labels.to(device=self.device)
-
-                    self.eval()  # move to eval mode
 
                     z = self.E(images)
                     z_l = torch.cat((z, validate_labels), 1)
@@ -454,12 +445,13 @@ class Net(object):
 
                     loss = input_output_loss(images, generated)
 
-                    joined = torch.cat((generated, images), 0)  # Conver one image to 1 sized batch
+                    joined = torch.cat((generated, images), 0)
 
                     file_name = os.path.join(where_to_save_epoch , 'onesided_' + str(epoch) +'.png' )
                     save_image_normalized(tensor=generated, filename=file_name, nrow=8)
 
                     losses['valid'].append(loss.item())
+                    break
 
 
             # print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)
@@ -469,7 +461,7 @@ class Net(object):
             logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
 
         if models_saving == 'last':
-            cp_path = self.save(where_to_save_epoch)
+            cp_path = self.save(where_to_save_epoch, to_save_models=True)
         loss_tracker.plot()
 
     def _mass_fn(self, fn_name, *args, **kwargs):
@@ -517,25 +509,26 @@ class Net(object):
         """
         if not os.path.isdir(path):
             os.mkdir(path)
-        path = os.path.join(path, datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
+        # path = os.path.join(path, datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
         if not os.path.isdir(path):
             os.mkdir(path)
 
         saved = []
-        for class_attr_name in dir(self):
-            if not class_attr_name.startswith('_') and to_save_models:
-                class_attr = getattr(self, class_attr_name)
-                if hasattr(class_attr, 'state_dict'):
-                    state_dict = class_attr.state_dict
-                    fname = os.path.join(path, consts.TRAINED_MODEL_FORMAT.format(class_attr_name))
-                    torch.save(state_dict, fname)
-                    saved.append(class_attr_name)
+        if to_save_models:
+            for class_attr_name in dir(self):
+                if not class_attr_name.startswith('_'):
+                    class_attr = getattr(self, class_attr_name)
+                    if hasattr(class_attr, 'state_dict'):
+                        state_dict = class_attr.state_dict
+                        fname = os.path.join(path, consts.TRAINED_MODEL_FORMAT.format(class_attr_name))
+                        torch.save(state_dict, fname)
+                        saved.append(class_attr_name)
 
         if saved:
             print("Saved {} to {}".format(', '.join(saved) or 'nothing', path))
-            return path
-        else:
+        elif to_save_models:
             raise FileNotFoundError()
+        return path
 
     def load(self, path):
         """Load all state dicts of Net's components.

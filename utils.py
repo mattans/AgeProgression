@@ -105,12 +105,14 @@ def get_fgnet_person_loader(root):
     return DataLoader(dataset=ImageFolder(root, transform=pil_to_model_tensor_transform), batch_size=1)
 
 
-def str_to_tensor(text):
+def str_to_tensor(text, normalize=False):
     age_group, gender = text.split('.')
     age_tensor = -torch.ones(consts.NUM_AGES)
     age_tensor[int(age_group)] *= -1
     gender_tensor = -torch.ones(consts.NUM_GENDERS)
     gender_tensor[int(gender)] *= -1
+    if normalize:
+        gender_tensor = gender_tensor.repeat(consts.NUM_AGES // consts.NUM_GENDERS)
     result = torch.cat((age_tensor, gender_tensor), 0)
     return result
 
