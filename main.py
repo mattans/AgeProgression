@@ -61,12 +61,6 @@ if __name__ == '__main__':
     parser.add_argument('--output', '-o', default='')
     args = parser.parse_args()
 
-    try:
-        os.remove(r'results/log_results.log')
-    except OSError:
-        pass
-    logging.basicConfig(filename=r'results/log_results.log', level=logging.DEBUG)
-
     net = model.Net()
     if args.cpu:  # force usage of cpu even if cuda is available (can be faster for testing)
         net.cpu()

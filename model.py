@@ -326,6 +326,11 @@ class Net(object):
 
         input_output_loss = l1_loss
 
+        log_path = os.path.join(where_to_save, 'log_results.log')
+        if os.path.exists(log_path):
+            os.remove(r'results/log_results.log')
+        logging.basicConfig(filename=r'results/log_results.log', level=logging.DEBUG)
+
         # save_image_normalized(tensor=validate_images, filename=where_to_save+"/base.png")
 
         for optimizer in (self.eg_optimizer, self.dz_optimizer, self.di_optimizer):
@@ -340,125 +345,131 @@ class Net(object):
         paths_for_gif = []
 
 
-
         for epoch in range(1, epochs + 1):
             where_to_save_epoch = os.path.join(where_to_save , "epoch" + str(epoch))
-            if not os.path.exists(where_to_save_epoch):
-                os.makedirs(where_to_save_epoch)
-            paths_for_gif.append(where_to_save_epoch)
-            losses = defaultdict(lambda: [])
-            self.train()  # move to train mode
-            for i, (images, labels) in enumerate(train_loader, 1):
+            try:
+                if not os.path.exists(where_to_save_epoch):
+                    os.makedirs(where_to_save_epoch)
+                paths_for_gif.append(where_to_save_epoch)
+                losses = defaultdict(lambda: [])
+                self.train()  # move to train mode
+                for i, (images, labels) in enumerate(train_loader, 1):
 
-                images = images.to(device=self.device)
-                labels = torch.stack([str_to_tensor(idx_to_class[l], normalize=True) for l in list(labels.numpy())])  # todo - can remove list() ?
-                labels = labels.to(device=self.device)
-                # print ("DEBUG: iteration: "+str(i)+" images shape: "+str(images.shape))
-                z = self.E(images)
-
-                # Input\Output Loss
-                z_l = torch.cat((z, labels), 1)
-                generated = self.G(z_l)
-                eg_loss = input_output_loss(generated, images)
-                losses['eg'].append(eg_loss.item())
-
-                # Total Variance Regularization Loss
-                reg = l1_loss(generated[:, :, :, :-1], generated[:, :, :, 1:]) + l1_loss(generated[:, :, :-1, :], generated[:, :, 1:, :])
-
-                #reg = (
-                #        torch.sum(torch.abs(generated[:, :, :, :-1] - generated[:, :, :, 1:])) +
-                #        torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
-                #) / float(generated.size(0))
-                reg_loss = 0 * reg
-                reg_loss.to(self.device)
-                losses['reg'].append(reg_loss.item())
-
-                # DiscriminatorZ Loss
-                z_prior = two_sided(torch.rand_like(z, device=self.device))  # [-1 : 1]
-                d_z_prior = self.Dz(z_prior)
-                d_z = self.Dz(z)
-                dz_loss_prior = bce_with_logits_loss(d_z_prior, torch.ones_like(d_z_prior))
-                dz_loss = bce_with_logits_loss(d_z, torch.zeros_like(d_z))
-                dz_loss_tot = (dz_loss + dz_loss_prior)
-                losses['dz'].append(dz_loss_tot.item())
-
-
-                # Encoder\DiscriminatorZ Loss
-                ez_loss = 0 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
-                ez_loss.to(self.device)
-                losses['ez'].append(ez_loss.item())
-
-                # DiscriminatorImg Loss
-                d_i_input = self.Dimg(images, labels, self.device)
-                d_i_output = self.Dimg(generated, labels, self.device)
-
-                di_input_loss = bce_with_logits_loss(d_i_input, torch.ones_like(d_i_input))
-                di_output_loss = bce_with_logits_loss(d_i_output, torch.zeros_like(d_i_output))
-                di_loss_tot = (di_input_loss + di_output_loss)
-                losses['di'].append(di_loss_tot.item())
-
-                # Generator\DiscriminatorImg Loss
-                dg_loss = 0.0001 * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
-                losses['dg'].append(dg_loss.item())
-
-                losses['uni_diff'] = uni_loss(z.cpu().detach()) - uni_loss(z_prior.cpu().detach())
-
-
-                # Start back propagation
-
-                # Back prop on Encoder\Generator
-                self.eg_optimizer.zero_grad()
-                loss = eg_loss + reg_loss + ez_loss + dg_loss
-                loss.backward(retain_graph=True)
-                self.eg_optimizer.step()
-
-                # Back prop on DiscriminatorZ
-                self.dz_optimizer.zero_grad()
-                dz_loss_tot.backward(retain_graph=True)
-                self.dz_optimizer.step()
-
-                # Back prop on DiscriminatorImg
-                self.di_optimizer.zero_grad()
-                di_loss_tot.backward()
-                self.di_optimizer.step()
-
-                now = datetime.datetime.now()
-
-            logging.info('[{h}:{m}[Epoch {e}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, t=loss.item()))
-            print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}, i {i:d}] Loss: {loss.item():f}")
-            to_save_models = models_saving == 'always'
-            cp_path = self.save(where_to_save_epoch, to_save_models=to_save_models)
-            loss_tracker.save(os.path.join(cp_path, 'losses.png'))
-
-            with torch.no_grad():  # validation
-                self.eval()  # move to eval mode
-
-                for ii, (images, labels) in enumerate(valid_loader, 1):
                     images = images.to(device=self.device)
-                    labels = torch.stack([str_to_tensor(idx_to_class[l], normalize=True) for l in list(labels.numpy())])
-                    labels = labels.to(self.device)
-                    validate_labels = labels.to(device=self.device)
-
+                    labels = torch.stack([str_to_tensor(idx_to_class[l], normalize=True) for l in list(labels.numpy())])  # todo - can remove list() ?
+                    labels = labels.to(device=self.device)
+                    # print ("DEBUG: iteration: "+str(i)+" images shape: "+str(images.shape))
                     z = self.E(images)
-                    z_l = torch.cat((z, validate_labels), 1)
+
+                    # Input\Output Loss
+                    z_l = torch.cat((z, labels), 1)
                     generated = self.G(z_l)
+                    eg_loss = input_output_loss(generated, images)
+                    losses['eg'].append(eg_loss.item())
 
-                    loss = input_output_loss(images, generated)
+                    # Total Variance Regularization Loss
+                    reg = l1_loss(generated[:, :, :, :-1], generated[:, :, :, 1:]) + l1_loss(generated[:, :, :-1, :], generated[:, :, 1:, :])
 
-                    joined = torch.cat((generated, images), 0)
+                    #reg = (
+                    #        torch.sum(torch.abs(generated[:, :, :, :-1] - generated[:, :, :, 1:])) +
+                    #        torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
+                    #) / float(generated.size(0))
+                    reg_loss = 0 * reg
+                    reg_loss.to(self.device)
+                    losses['reg'].append(reg_loss.item())
 
-                    file_name = os.path.join(where_to_save_epoch , 'onesided_' + str(epoch) +'.png' )
-                    save_image_normalized(tensor=generated, filename=file_name, nrow=8)
+                    # DiscriminatorZ Loss
+                    z_prior = two_sided(torch.rand_like(z, device=self.device))  # [-1 : 1]
+                    d_z_prior = self.Dz(z_prior)
+                    d_z = self.Dz(z)
+                    dz_loss_prior = bce_with_logits_loss(d_z_prior, torch.ones_like(d_z_prior))
+                    dz_loss = bce_with_logits_loss(d_z, torch.zeros_like(d_z))
+                    dz_loss_tot = (dz_loss + dz_loss_prior)
+                    losses['dz'].append(dz_loss_tot.item())
 
-                    losses['valid'].append(loss.item())
-                    break
+
+                    # Encoder\DiscriminatorZ Loss
+                    ez_loss = 0 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
+                    ez_loss.to(self.device)
+                    losses['ez'].append(ez_loss.item())
+
+                    # DiscriminatorImg Loss
+                    d_i_input = self.Dimg(images, labels, self.device)
+                    d_i_output = self.Dimg(generated, labels, self.device)
+
+                    di_input_loss = bce_with_logits_loss(d_i_input, torch.ones_like(d_i_input))
+                    di_output_loss = bce_with_logits_loss(d_i_output, torch.zeros_like(d_i_output))
+                    di_loss_tot = (di_input_loss + di_output_loss)
+                    losses['di'].append(di_loss_tot.item())
+
+                    # Generator\DiscriminatorImg Loss
+                    dg_loss = 0.0001 * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
+                    losses['dg'].append(dg_loss.item())
+
+                    losses['uni_diff'] = uni_loss(z.cpu().detach()) - uni_loss(z_prior.cpu().detach())
 
 
-            # print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)
-            loss_tracker.append_many(**{k: mean(v) for k, v in losses.items()})
-            loss_tracker.plot()
+                    # Start back propagation
 
-            logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
+                    # Back prop on Encoder\Generator
+                    self.eg_optimizer.zero_grad()
+                    loss = eg_loss + reg_loss + ez_loss + dg_loss
+                    loss.backward(retain_graph=True)
+                    self.eg_optimizer.step()
+
+                    # Back prop on DiscriminatorZ
+                    self.dz_optimizer.zero_grad()
+                    dz_loss_tot.backward(retain_graph=True)
+                    self.dz_optimizer.step()
+
+                    # Back prop on DiscriminatorImg
+                    self.di_optimizer.zero_grad()
+                    di_loss_tot.backward()
+                    self.di_optimizer.step()
+
+                    now = datetime.datetime.now()
+
+                logging.info('[{h}:{m}[Epoch {e}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, t=loss.item()))
+                print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Loss: {loss.item():f}")
+                to_save_models = models_saving == 'always'
+                cp_path = self.save(where_to_save_epoch, to_save_models=to_save_models)
+                loss_tracker.save(os.path.join(cp_path, 'losses.png'))
+
+                with torch.no_grad():  # validation
+                    self.eval()  # move to eval mode
+
+                    for ii, (images, labels) in enumerate(valid_loader, 1):
+                        images = images.to(self.device)
+                        labels = torch.stack([str_to_tensor(idx_to_class[l], normalize=True) for l in list(labels.numpy())])
+                        labels = labels.to(self.device)
+                        validate_labels = labels.to(self.device)
+
+                        z = self.E(images)
+                        z_l = torch.cat((z, validate_labels), 1)
+                        generated = self.G(z_l)
+
+                        loss = input_output_loss(images, generated)
+
+                        joined = torch.cat((generated, images), 0)
+
+                        file_name = os.path.join(where_to_save_epoch , 'onesided_' + str(epoch) +'.png' )
+                        save_image_normalized(tensor=joined, filename=file_name, nrow=8)
+
+                        losses['valid'].append(loss.item())
+                        break
+
+
+                # print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)
+                loss_tracker.append_many(**{k: mean(v) for k, v in losses.items()})
+                loss_tracker.plot()
+
+                logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
+
+            except KeyboardInterrupt:
+                print("CTRL+C detected, saving model")
+                cp_path = self.save(where_to_save_epoch, to_save_models=True)
+                loss_tracker.save(os.path.join(cp_path, 'losses.png'))
+                raise
 
         if models_saving == 'last':
             cp_path = self.save(where_to_save_epoch, to_save_models=True)
