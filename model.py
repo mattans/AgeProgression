@@ -440,12 +440,13 @@ class Net(object):
                     if os.path.isdir(prev_folder):
                         removed_ctr = 0
                         for tm in os.listdir(prev_folder):
+                            tm = os.path.join(prev_folder, tm)
                             if os.path.splitext(tm)[1] == consts.TRAINED_MODEL_EXT:
                                 try:
                                     os.remove(tm)
                                     removed_ctr += 1
                                 except OSError as e:
-                                    print("Failed removing {}: {}".format(tm, e.message))
+                                    print("Failed removing {}: {}".format(tm, e))
                         if removed_ctr > 0:
                             print("Removed {} trained models from last epoch".format(removed_ctr))
 
