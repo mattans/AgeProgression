@@ -160,14 +160,14 @@ def default_test_results_dir(eval=True):
 
 
 class LossTracker(object):
-    def __init__(self, *names, **kwargs):
-        assert 'train' in names and 'valid' in names, str(names)
+    def __init__(self, use_heuristics=False, plot=False):
+        # assert 'train' in names and 'valid' in names, str(names)
         self.losses = defaultdict(lambda: [])
         self.paths = []
         self.epochs = 0
-        self.use_heuristics = kwargs.get('use_heuristics', False)
+        self.use_heuristics = use_heuristics
         self.eps = abs(kwargs.get('eps', 1e-3))
-        if(names[-1] == True):
+        if plot:
            # print("names[-1] - "+names[-1])
             plt.ion()
             plt.show()
@@ -303,7 +303,7 @@ class DeConv2dLikeTF(torch.nn.ConvTranspose2d):
             padding[1] = lhs_1 // 2 + 1
             output_padding[1] = 1
 
-        super(DeConv2dLikeTF, self).__init__(
+        super(type(self), self).__init__(
             in_channels=c_in,
             out_channels=c_out,
             kernel_size=kernel,

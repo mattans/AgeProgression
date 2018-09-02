@@ -325,6 +325,7 @@ class Net(object):
         idx_to_class = {v: k for k, v in dataset.class_to_idx.items()}
 
         input_output_loss = l1_loss
+        nrow = round((2 * batch_size)**0.5)
 
         log_path = os.path.join(where_to_save, 'log_results.log')
         if os.path.exists(log_path):
@@ -339,14 +340,14 @@ class Net(object):
                 if val is not None:
                     optimizer.param_groups[0][param] = val
 
-        loss_tracker = LossTracker('train', 'valid', 'dz', 'reg', 'ez', 'dimg', should_plot)
+        loss_tracker = LossTracker(plot=should_plot)
         where_to_save_epoch = ""
         save_count = 0
         paths_for_gif = []
 
 
         for epoch in range(1, epochs + 1):
-            where_to_save_epoch = os.path.join(where_to_save , "epoch" + str(epoch))
+            where_to_save_epoch = os.path.join(where_to_save, "epoch" + str(epoch))
             try:
                 if not os.path.exists(where_to_save_epoch):
                     os.makedirs(where_to_save_epoch)
@@ -406,7 +407,8 @@ class Net(object):
                     dg_loss = 0.0001 * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
                     losses['dg'].append(dg_loss.item())
 
-                    losses['uni_diff'] = uni_loss(z.cpu().detach()) - uni_loss(z_prior.cpu().detach())
+                    uni_diff_loss = (uni_loss(z.cpu().detach()) - uni_loss(z_prior.cpu().detach())) / batch_size
+                    losses['uni_diff'].append(uni_diff_loss)
 
 
                     # Start back propagation
@@ -431,8 +433,22 @@ class Net(object):
 
                 logging.info('[{h}:{m}[Epoch {e}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, t=loss.item()))
                 print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Loss: {loss.item():f}")
-                to_save_models = models_saving == 'always'
+                to_save_models = models_saving in ('always', 'tail')
                 cp_path = self.save(where_to_save_epoch, to_save_models=to_save_models)
+                if models_saving == 'tail':
+                    prev_folder = os.path.join(where_to_save, "epoch" + str(epoch - 1))
+                    if os.path.isdir(prev_folder):
+                        removed_ctr = 0
+                        for tm in os.listdir(prev_folder):
+                            if os.path.splitext(tm)[1] == TRAINED_MODEL_EXT:
+                                try:
+                                    os.remove(tm)
+                                    removed_ctr += 1
+                                except OSError as e:
+                                    print("Failed removing {}: {}".format(tm, e.message))
+                        if removed_ctr > 0:
+                            print("Removed {} trained models from last epoch".format(removed_ctr))
+
                 loss_tracker.save(os.path.join(cp_path, 'losses.png'))
 
                 with torch.no_grad():  # validation
@@ -453,7 +469,7 @@ class Net(object):
                         joined = torch.cat((generated, images), 0)
 
                         file_name = os.path.join(where_to_save_epoch , 'onesided_' + str(epoch) +'.png' )
-                        save_image_normalized(tensor=joined, filename=file_name, nrow=8)
+                        save_image_normalized(tensor=joined, filename=file_name, nrow=nrow)
 
                         losses['valid'].append(loss.item())
                         break
