@@ -482,7 +482,7 @@ class Net(object):
                 logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
 
             except KeyboardInterrupt:
-                print("CTRL+C detected, saving model")
+                print("{br}CTRL+C detected, saving model{br}".format(br=os.linesep))
                 cp_path = self.save(where_to_save_epoch, to_save_models=True)
                 loss_tracker.save(os.path.join(cp_path, 'losses.png'))
                 raise
