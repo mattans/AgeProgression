@@ -160,13 +160,12 @@ def default_test_results_dir(eval=True):
 
 
 class LossTracker(object):
-    def __init__(self, use_heuristics=False, plot=False):
+    def __init__(self, use_heuristics=False, plot=False, eps=1e-3):
         # assert 'train' in names and 'valid' in names, str(names)
         self.losses = defaultdict(lambda: [])
         self.paths = []
         self.epochs = 0
         self.use_heuristics = use_heuristics
-        self.eps = abs(kwargs.get('eps', 1e-3))
         if plot:
            # print("names[-1] - "+names[-1])
             plt.ion()
