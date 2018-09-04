@@ -159,6 +159,10 @@ def default_test_results_dir(eval=True):
     return os.path.join('.', 'test_results', datetime.datetime.now().strftime(fmt) if eval else fmt)
 
 
+def print_timestamp(s):
+    print(datetime.datetime.now().strftime(fmt) + s)
+
+
 class LossTracker(object):
     def __init__(self, use_heuristics=False, plot=False, eps=1e-3):
         # assert 'train' in names and 'valid' in names, str(names)
@@ -313,3 +317,18 @@ class DeConv2dLikeTF(torch.nn.ConvTranspose2d):
             bias=bias,
             dilation=dilation
         )
+
+
+def remove_trained(folder):
+    if os.path.isdir(folder):
+        removed_ctr = 0
+        for tm in os.listdir(folder):
+            tm = os.path.join(folder, tm)
+            if os.path.splitext(tm)[1] == consts.TRAINED_MODEL_EXT:
+                try:
+                    os.remove(tm)
+                    removed_ctr += 1
+                except OSError as e:
+                    print("Failed removing {}: {}".format(tm, e))
+        if removed_ctr > 0:
+            print("Removed {} trained models from {}".format(removed_ctr, folder))

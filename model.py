@@ -61,9 +61,6 @@ class Encoder(nn.Module):
             )
         )
 
-    def _compress(self, x):
-        return x.view(x.size(0), -1)
-
     def forward(self, face):
         out = face
         for conv_layer in self.conv_layers:
@@ -71,7 +68,7 @@ class Encoder(nn.Module):
             out = conv_layer(out)
             #print(out.shape)
             #print("W")
-        out = self._compress(out)
+        out = out.flatten(1, -1)
         out = self.fc_layer(out)
         return out
 
@@ -239,12 +236,7 @@ class Net(object):
         self.di_optimizer = Adam(self.Dimg.parameters())
 
         self.device = None
-        if torch.cuda.is_available():
-            self.cuda()
-            print("On CUDA")
-        else:
-            self.cpu()
-            print("On CPU")
+        self.cpu()  # initial, can later move to cuda
 
     def __call__(self, *args, **kwargs):
         self.test_single(*args, **kwargs)
@@ -390,7 +382,7 @@ class Net(object):
 
 
                     # Encoder\DiscriminatorZ Loss
-                    ez_loss = 0 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
+                    ez_loss = 0.0001 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
                     ez_loss.to(self.device)
                     losses['ez'].append(ez_loss.item())
 
@@ -432,24 +424,12 @@ class Net(object):
                     now = datetime.datetime.now()
 
                 logging.info('[{h}:{m}[Epoch {e}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, t=loss.item()))
-                print(f"[{now.hour:d}:{now.minute:d}] [Epoch {epoch:d}] Loss: {loss.item():f}")
+                print_timestamp(f"[Epoch {epoch:d}] Loss: {loss.item():f}")
                 to_save_models = models_saving in ('always', 'tail')
                 cp_path = self.save(where_to_save_epoch, to_save_models=to_save_models)
                 if models_saving == 'tail':
                     prev_folder = os.path.join(where_to_save, "epoch" + str(epoch - 1))
-                    if os.path.isdir(prev_folder):
-                        removed_ctr = 0
-                        for tm in os.listdir(prev_folder):
-                            tm = os.path.join(prev_folder, tm)
-                            if os.path.splitext(tm)[1] == consts.TRAINED_MODEL_EXT:
-                                try:
-                                    os.remove(tm)
-                                    removed_ctr += 1
-                                except OSError as e:
-                                    print("Failed removing {}: {}".format(tm, e))
-                        if removed_ctr > 0:
-                            print("Removed {} trained models from last epoch".format(removed_ctr))
-
+                    remove_trained(prev_folder)
                 loss_tracker.save(os.path.join(cp_path, 'losses.png'))
 
                 with torch.no_grad():  # validation
@@ -483,8 +463,12 @@ class Net(object):
                 logging.info('[{h}:{m}[Epoch {e}] Loss: {l}'.format(h=now.hour, m=now.minute, e=epoch, l=repr(loss_tracker)))
 
             except KeyboardInterrupt:
-                print("{br}CTRL+C detected, saving model{br}".format(br=os.linesep))
-                cp_path = self.save(where_to_save_epoch, to_save_models=True)
+                print_timestamp("{br}CTRL+C detected, saving model{br}".format(br=os.linesep))
+                if models_saving != 'never':
+                    cp_path = self.save(where_to_save_epoch, to_save_models=True)
+                if models_saving == 'tail':
+                    prev_folder = os.path.join(where_to_save, "epoch" + str(epoch - 1))
+                    remove_trained(prev_folder)
                 loss_tracker.save(os.path.join(cp_path, 'losses.png'))
                 raise
 
@@ -553,9 +537,9 @@ class Net(object):
                         saved.append(class_attr_name)
 
         if saved:
-            print("Saved {} to {}".format(', '.join(saved) or 'nothing', path))
+            print_timestamp("Saved {} to {}".format(', '.join(saved), path))
         elif to_save_models:
-            raise FileNotFoundError()
+            raise FileNotFoundError("Nothing was saved to {}".format(path))
         return path
 
     def load(self, path):
@@ -572,8 +556,8 @@ class Net(object):
                     class_attr.load_state_dict(torch.load(fname)())
                     loaded.append(class_attr_name)
         if loaded:
-            print("Loaded {} from {}".format(', '.join(loaded), path))
+            print_timestamp("Loaded {} from {}".format(', '.join(loaded), path))
         else:
-            raise FileNotFoundError()
+            raise FileNotFoundError("Nothing was loaded from {}".format(path))
 
 
