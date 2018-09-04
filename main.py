@@ -41,29 +41,25 @@ if __name__ == '__main__':
     parser.add_argument('--bs', '--batch-size', dest='batch_size', default=64, type=int)
     parser.add_argument('--wd', '--weight-decay', dest='weight_decay', default=1e-5, type=float)
     parser.add_argument('--lr', '--learning-rate', dest='lr', default=2e-4, type=float)
-    parser.add_argument('--b1', '--beta1', dest='b1', default=0.5, type=float)
-    parser.add_argument('--b2', '--beta2', dest='b2', default=0.999, type=float)
+    parser.add_argument('--b1', '-b', dest='b1', default=0.5, type=float)
+    parser.add_argument('--b2', '-B', dest='b2', default=0.999, type=float)
     parser.add_argument('--sp', '--shouldplot', dest='sp', default=False, type=bool)
 
     # test params
-    parser.add_argument('--age', required=False, type=int)
-    parser.add_argument('--gender', required=False, type=str_to_gender)
+    parser.add_argument('--age', '-a', required=False, type=int)
+    parser.add_argument('--gender', '-g', required=False, type=str_to_gender)
 
     # shared params
-    parser.add_argument('--cpu', action='store_true')
-    parser.add_argument('--load', required=False, default=None, help='Trained models path for pre-training or for testing')
-    parser.add_argument(
-        '--input',
-        '-i',
-        default=None,
-        help='Training dataset path (default is {}) or testing image path'.format(default_train_results_dir())
-    )
+    parser.add_argument('--cpu', '-c', action='store_true')
+    parser.add_argument('--load', '-l', required=False, default=None, help='Trained models path for pre-training or for testing')
+    parser.add_argument('--input', '-i', default=None, help='Training dataset path (default is {}) or testing image path'.format(default_train_results_dir()))
     parser.add_argument('--output', '-o', default='')
     args = parser.parse_args()
 
     net = model.Net()
-    if args.cpu:  # force usage of cpu even if cuda is available (can be faster for testing)
-        net.cpu()
+
+    if not args.cpu and torch.cuda.is_available():
+        net.cuda()
 
     if args.mode == 'train':
 
@@ -120,8 +116,5 @@ if __name__ == '__main__':
         except:
             pass
 
-        img = pil_to_model_tensor_transform(pil_loader(args.input))
-        if not args.cpu and torch.cuda.is_available():
-            net.cuda()
-            img = img.cuda()
+        img = pil_to_model_tensor_transform(pil_loader(args.input)).to(net.device)
         net.test_single(img_tensor=img, age=args.age, gender=args.gender, target=results_dest)
