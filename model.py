@@ -171,7 +171,7 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         num_deconv_layers = 5
-        mini_size = 8
+        mini_size = 4
         self.fc = nn.Sequential(
             nn.Linear(
                 consts.NUM_Z_CHANNELS + consts.LABEL_LEN_EXPANDED,
@@ -207,7 +207,7 @@ class Generator(nn.Module):
         add_deconv(self.deconv_layers, 'g_deconv_7', in_dims=(16, 128, 128), out_dims=(3, 128, 128), kernel=1, stride=1, actf=nn.Tanh())
 
     def _decompress(self, x):
-        return x.view(x.size(0), 1024, 8, 8)  # TODO - replace hardcoded
+        return x.view(x.size(0), 1024, 4, 4)  # TODO - replace hardcoded
 
     def forward(self, z, age=None, gender=None):
         out = z
