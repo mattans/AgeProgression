@@ -198,12 +198,12 @@ class Generator(nn.Module):
             )
 
         # add_deconv(self.deconv_layers, 'g_deconv_1', i=1024, o=1024, krnl=5, strd=2, padd=4, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_1', in_dims=(1024, 8, 8), out_dims=(512, 16, 16), kernel=5, stride=2, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_2', in_dims=(512, 16, 16), out_dims=(256, 32, 32), kernel=5, stride=2, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_3', in_dims=(256, 32, 32), out_dims=(128, 64, 64), kernel=5, stride=2, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_4', in_dims=(128, 64, 64), out_dims=(64, 128, 128), kernel=5, stride=2, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_5', in_dims=(64, 128, 128), out_dims=(32, 256, 256), kernel=5, stride=2, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_6', in_dims=(32, 256, 256), out_dims=(16, 128, 128), kernel=5, stride=1, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_1', in_dims=(1024, 4, 4), out_dims=(512, 8, 8), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_2', in_dims=(512, 8, 8), out_dims=(256, 16, 16), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_3', in_dims=(256, 16, 16), out_dims=(128, 32, 32), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_4', in_dims=(128, 32, 32), out_dims=(64, 64, 64), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_5', in_dims=(64, 64, 64), out_dims=(32, 128, 128), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv(self.deconv_layers, 'g_deconv_6', in_dims=(32, 128, 128), out_dims=(16, 128, 128), kernel=5, stride=1, actf=nn.ReLU())
         add_deconv(self.deconv_layers, 'g_deconv_7', in_dims=(16, 128, 128), out_dims=(3, 128, 128), kernel=1, stride=1, actf=nn.Tanh())
 
     def _decompress(self, x):
