@@ -1,27 +1,23 @@
-import consts
-from utils import *
 import os
-from shutil import copyfile
+import datetime
+import logging
+from collections import OrderedDict, defaultdict
 import numpy as np
-from collections import OrderedDict, namedtuple, defaultdict
-from torchvision import datasets
+import cv2
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.nn.functional import l1_loss, mse_loss
 from torch.nn.functional import binary_cross_entropy_with_logits as bce_with_logits_loss
-from torch.utils.data import DataLoader
 from torch.optim import Adam
-import datetime
-from scipy.misc import imsave as ims
+from torch.utils.data import DataLoader
+from torch.utils.data.sampler import SubsetRandomSampler
 import torchvision
 from torchvision.datasets import ImageFolder
-import logging
-# from torch.nn.functional import relu
-from torch.utils.data.sampler import SubsetRandomSampler
 from torchvision.datasets.folder import pil_loader
-import scipy.stats as stats
-import cv2
+
+import consts
+from utils import *
 
 
 class Encoder(nn.Module):
@@ -247,10 +243,8 @@ class Net(object):
     def test_single(self, img_tensor, age, gender, target):
 
         self.eval()
-        batch = img_tensor.repeat(consts.NUM_AGES, 1, 1, 1)  # N x D x H x W
-        batch.to(self.device)
+        batch = img_tensor.repeat(consts.NUM_AGES, 1, 1, 1).to(device=self.device)  # N x D x H x W
         z = self.E(batch)  # N x Z
-        z.to(self.device)
 
         gender_tensor = -torch.ones(consts.NUM_GENDERS)
         gender_tensor[int(gender)] *= -1
@@ -260,8 +254,7 @@ class Net(object):
         for i in range(consts.NUM_AGES):
             age_tensor[i][i] *= -1  # apply the i'th age group on the i'th image
 
-        l = torch.cat((age_tensor, gender_tensor), 1)
-        l.to(self.device)
+        l = torch.cat((age_tensor, gender_tensor), 1).to(self.device)
         z_l = torch.cat((z, l), 1)
 
         generated = self.G(z_l)
@@ -292,7 +285,10 @@ class Net(object):
 
         joined = torch.cat((img_tensor.unsqueeze(0), generated), 0) # Conver one image to 1 sized batch
 
-        save_image_normalized(tensor=joined, filename=os.path.join(target, 'menifa.png'), nrow=joined.size(0))
+        dest = os.path.join(target, 'menifa.png')
+        save_image_normalized(tensor=joined, filename=dest, nrow=joined.size(0))
+        print_timestamp("Saved test result to " + dest)
+        return dest
 
     def teach(
             self,
@@ -449,7 +445,7 @@ class Net(object):
 
                         joined = torch.cat((generated, images), 0)
 
-                        file_name = os.path.join(where_to_save_epoch , 'onesided_' + str(epoch) +'.png' )
+                        file_name = os.path.join(where_to_save_epoch , 'validation.png')
                         save_image_normalized(tensor=joined, filename=file_name, nrow=nrow)
 
                         losses['valid'].append(loss.item())
@@ -542,14 +538,14 @@ class Net(object):
             raise FileNotFoundError("Nothing was saved to {}".format(path))
         return path
 
-    def load(self, path):
+    def load(self, path, slim=True):
         """Load all state dicts of Net's components.
 
         :return:
         """
         loaded = []
         for class_attr_name in dir(self):
-            if not class_attr_name.startswith('_'):
+            if (not class_attr_name.startswith('_')) and ((not slim) or (class_attr_name in ('E', 'G'))):
                 class_attr = getattr(self, class_attr_name)
                 fname = os.path.join(path, consts.TRAINED_MODEL_FORMAT.format(class_attr_name))
                 if hasattr(class_attr, 'load_state_dict') and os.path.exists(fname):

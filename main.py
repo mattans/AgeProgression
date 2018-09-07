@@ -29,33 +29,52 @@ def str_to_gender(s):
     elif s in ('f', 'female', '1'):
         return 1
     else:
-        raise Exception()
+        raise KeyError("No gender found")
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='AgeProgression on PyTorch.')
+    parser = argparse.ArgumentParser(description='AgeProgression on PyTorch.', formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--mode', choices=['train', 'test'], default='train')
 
     # train params
-    parser.add_argument('--epochs', default=1, type=int)
-    parser.add_argument('--models-saving', dest='models_saving', choices=['always', 'last', 'never', 'tail'], default='always', type=str)
-    parser.add_argument('--bs', '--batch-size', dest='batch_size', default=64, type=int)
-    parser.add_argument('--wd', '--weight-decay', dest='weight_decay', default=1e-5, type=float)
-    parser.add_argument('--lr', '--learning-rate', dest='lr', default=2e-4, type=float)
+    parser.add_argument('--epochs', '-e', default=1, type=int)
+    parser.add_argument(
+        '--models-saving',
+        '--ms',
+        dest='models_saving',
+        choices=('always', 'last', 'tail', 'never'),
+        default='always',
+        type=str,
+        help='Model saving preference.{br}'
+             '\talways: Save trained model at the end of every epoch (default){br}'
+             '\tUse this option if you have a lot of free memory and you wish to experiment with the progress of your results.{br}'
+             '\tlast: Save trained model only at the end of the last epoch{br}'
+             '\tUse this option if you don\'t have a lot of free memory and removing large binary files is a costly operation.{br}'
+             '\ttail: "Safe-last". Save trained model at the end of every epoch and remove the saved model of the previous epoch{br}'
+             '\tUse this option if you don\'t have a lot of free memory and removing large binary files is a cheap operation.{br}'
+             '\tnever: Don\'t save trained model{br}'
+             '\tUse this option if you only wish to collect statistics and validation results.{br}'
+             'All options except \'never\' will also save when interrupted by the user.'.format(br=os.linesep)
+    )
+    parser.add_argument('--batch-size', '--bs', dest='batch_size', default=64, type=int)
+    parser.add_argument('--weight-decay', '--wd', dest='weight_decay', default=1e-5, type=float)
+    parser.add_argument('--learning-rate', '--lr', dest='learning_rate', default=2e-4, type=float)
     parser.add_argument('--b1', '-b', dest='b1', default=0.5, type=float)
     parser.add_argument('--b2', '-B', dest='b2', default=0.999, type=float)
-    parser.add_argument('--sp', '--shouldplot', dest='sp', default=False, type=bool)
+    parser.add_argument('--shouldplot', '--sp', dest='sp', default=False, type=bool)
 
     # test params
     parser.add_argument('--age', '-a', required=False, type=int)
     parser.add_argument('--gender', '-g', required=False, type=str_to_gender)
 
     # shared params
-    parser.add_argument('--cpu', '-c', action='store_true')
+    parser.add_argument('--cpu', '-c', action='store_true', help='Run on CPU even if CUDA is available.')
     parser.add_argument('--load', '-l', required=False, default=None, help='Trained models path for pre-training or for testing')
     parser.add_argument('--input', '-i', default=None, help='Training dataset path (default is {}) or testing image path'.format(default_train_results_dir()))
     parser.add_argument('--output', '-o', default='')
+    parser.add_argument('--z', dest='z_channels', default=50, type=int, help='Length of Z vector')
     args = parser.parse_args()
 
+    consts.NUM_Z_CHANNELS = args.z_channels
     net = model.Net()
 
     if not args.cpu and torch.cuda.is_available():
@@ -65,7 +84,7 @@ if __name__ == '__main__':
 
         betas = (args.b1, args.b2) if args.load is None else None
         weight_decay = args.weight_decay if args.load is None else None
-        lr = args.lr if args.load is None else None
+        lr = args.learning_rate if args.load is None else None
 
         if args.load is not None:
             net.load(args.load)
@@ -108,7 +127,7 @@ if __name__ == '__main__':
         if args.load is None:
             raise RuntimeError("Must provide path of trained models")
 
-        net.load(args.load)
+        net.load(path=args.load, slim=True)
 
         results_dest = args.output or default_test_results_dir()
         try:

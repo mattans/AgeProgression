@@ -1,46 +1,28 @@
-import consts
 import os
+import datetime
 import threading
-import imageio
-
 from shutil import copyfile
-import numpy as np
+from collections import namedtuple, defaultdict
 import matplotlib.pyplot as plt
-import matplotlib
-from collections import namedtuple
+import imageio
+import numpy as np
+from sklearn.metrics.regression import mean_squared_error as mse
 
 import torch
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
-import datetime
 from torchvision.utils import save_image
-from collections import defaultdict
+
+import consts
 
 
 def save_image_normalized(*args, **kwargs):
     save_image(*args, **kwargs, normalize=True, range=(-1, 1))
 
 
-
-
-def merge(images, size):
-    h, w = images.shape[2], images.shape[3]
-    img = np.zeros((3, h * size[0], w * size[1]))
-
-    for idx, image in enumerate(images):
-        i = idx % size[1]
-        j = int(idx / size[1])
-        img[0][j * h:j * h + h, i * w:i * w + w] = image[0]
-        img[1][j * h:j * h + h, i * w:i * w + w] = image[1]
-        img[2][j * h:j * h + h, i * w:i * w + w] = image[2]
-
-    return img
-
-
 def two_sided(x):
     return 2 * (x - 0.5)
-
 
 def one_sided(x):
     return (x + 1) / 2
@@ -134,14 +116,6 @@ class Label(namedtuple('Label', ('age', 'gender'))):
 
 
 
-def optimizer_and_criterion(criter_class, optim_class, *modules, **optim_args):
-    params = []
-    for module in modules:
-        params.extend(list(module.parameters()))
-    optimizier = optim_class(params=params, **optim_args)
-    return optimizier, criter_class(reduction='elementwise_mean')
-
-
 fmt_t = "%H_%M"
 fmt = "%Y_%m_%d"
 
@@ -160,7 +134,7 @@ def default_test_results_dir(eval=True):
 
 
 def print_timestamp(s):
-    print(datetime.datetime.now().strftime(fmt) + s)
+    print("[{}] {}".format(datetime.datetime.now().strftime(fmt_t), s))
 
 
 class LossTracker(object):
@@ -242,36 +216,10 @@ class LossTracker(object):
         return str(ret)
 
 
-def get_list_of_labels(lst):
-    new_list = []
-    for label in lst:
-        if 0 <= label <= 5:
-            new_list.append(0)
-        elif 6 <= label <= 10:
-            new_list.append(1)
-        elif 11 <= label <= 15:
-            new_list.append(2)
-        elif 16 <= label <= 20:
-            new_list.append(3)
-        elif 21 <= label <= 30:
-            new_list.append(4)
-        elif 31 <= label <= 40:
-            new_list.append(5)
-        elif 41 <= label <= 50:
-            new_list.append(6)
-        elif 51 <= label <= 60:
-            new_list.append(7)
-        elif 61 <= label <= 70:
-            new_list.append(89)
-        else:
-            new_list.append(9)
-        return new_list
-
-
 def mean(l):
     return np.array(l).mean()
 
-from sklearn.metrics.regression import mean_squared_error as mse
+
 def uni_loss(input):
     assert len(input.shape) == 2
     batch_size, input_size = input.size()
