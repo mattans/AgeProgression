@@ -176,11 +176,11 @@ class Generator(nn.Module):
 
         self.deconv_layers = nn.ModuleList()
 
-        def add_deconv(module_list, name, in_dims, out_dims, kernel, stride, actf):
-            return module_list.add_module(
+        def add_deconv(name, in_dims, out_dims, kernel, stride, actf):
+            self.deconv_layers.add_module(
                 name,
                 nn.Sequential(
-                    DeConv2dLikeTF(
+                    easy_deconv(
                         in_dims=in_dims,
                         out_dims=out_dims,
                         kernel=kernel,
@@ -190,14 +190,13 @@ class Generator(nn.Module):
                 )
             )
 
-        # add_deconv(self.deconv_layers, 'g_deconv_1', i=1024, o=1024, krnl=5, strd=2, padd=4, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_1', in_dims=(1024, 4, 4), out_dims=(512, 8, 8), kernel=5, stride=2, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_2', in_dims=(512, 8, 8), out_dims=(256, 16, 16), kernel=5, stride=2, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_3', in_dims=(256, 16, 16), out_dims=(128, 32, 32), kernel=5, stride=2, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_4', in_dims=(128, 32, 32), out_dims=(64, 64, 64), kernel=5, stride=2, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_5', in_dims=(64, 64, 64), out_dims=(32, 128, 128), kernel=5, stride=2, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_6', in_dims=(32, 128, 128), out_dims=(16, 128, 128), kernel=5, stride=1, actf=nn.ReLU())
-        add_deconv(self.deconv_layers, 'g_deconv_7', in_dims=(16, 128, 128), out_dims=(3, 128, 128), kernel=1, stride=1, actf=nn.Tanh())
+        add_deconv('g_deconv_1', in_dims=(1024, 4, 4), out_dims=(512, 8, 8), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv('g_deconv_2', in_dims=(512, 8, 8), out_dims=(256, 16, 16), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv('g_deconv_3', in_dims=(256, 16, 16), out_dims=(128, 32, 32), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv('g_deconv_4', in_dims=(128, 32, 32), out_dims=(64, 64, 64), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv('g_deconv_5', in_dims=(64, 64, 64), out_dims=(32, 128, 128), kernel=5, stride=2, actf=nn.ReLU())
+        add_deconv('g_deconv_6', in_dims=(32, 128, 128), out_dims=(16, 128, 128), kernel=5, stride=1, actf=nn.ReLU())
+        add_deconv('g_deconv_7', in_dims=(16, 128, 128), out_dims=(3, 128, 128), kernel=1, stride=1, actf=nn.Tanh())
 
     def _decompress(self, x):
         return x.view(x.size(0), 1024, 4, 4)  # TODO - replace hardcoded

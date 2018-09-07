@@ -227,44 +227,43 @@ def uni_loss(input):
     return mse(hist, batch_size * torch.ones_like(hist)) / input_size
 
 
-class DeConv2dLikeTF(torch.nn.ConvTranspose2d):
-    def __init__(self, in_dims, out_dims, kernel, stride=1, groups=1, bias=True, dilation=1):
-        if isinstance(kernel, int):
-            kernel = (kernel, kernel)
-        if isinstance(stride, int):
-            stride = (stride, stride)
+def easy_deconv(in_dims, out_dims, kernel, stride=1, groups=1, bias=True, dilation=1):
+    if isinstance(kernel, int):
+        kernel = (kernel, kernel)
+    if isinstance(stride, int):
+        stride = (stride, stride)
 
-        c_in, h_in, w_in = in_dims
-        c_out, h_out, w_out = out_dims
+    c_in, h_in, w_in = in_dims
+    c_out, h_out, w_out = out_dims
 
-        padding = [0, 0]
-        output_padding = [0, 0]
+    padding = [0, 0]
+    output_padding = [0, 0]
 
-        lhs_0 = -h_out + (h_in - 1) * stride[0] + kernel[0]  # = 2p[0] - o[0]
-        if lhs_0 % 2 == 0:
-            padding[0] = lhs_0 // 2
-        else:
-            padding[0] = lhs_0 // 2 + 1
-            output_padding[0] = 1
+    lhs_0 = -h_out + (h_in - 1) * stride[0] + kernel[0]  # = 2p[0] - o[0]
+    if lhs_0 % 2 == 0:
+        padding[0] = lhs_0 // 2
+    else:
+        padding[0] = lhs_0 // 2 + 1
+        output_padding[0] = 1
 
-        lhs_1 = -w_out + (w_in - 1) * stride[1] + kernel[1]  # = 2p[1] - o[1]
-        if lhs_1 % 2 == 0:
-            padding[1] = lhs_1 // 2
-        else:
-            padding[1] = lhs_1 // 2 + 1
-            output_padding[1] = 1
+    lhs_1 = -w_out + (w_in - 1) * stride[1] + kernel[1]  # = 2p[1] - o[1]
+    if lhs_1 % 2 == 0:
+        padding[1] = lhs_1 // 2
+    else:
+        padding[1] = lhs_1 // 2 + 1
+        output_padding[1] = 1
 
-        super(type(self), self).__init__(
-            in_channels=c_in,
-            out_channels=c_out,
-            kernel_size=kernel,
-            stride=stride,
-            padding=tuple(padding),
-            output_padding=tuple(output_padding),
-            groups=groups,
-            bias=bias,
-            dilation=dilation
-        )
+    return torch.nn.ConvTranspose2d(
+        in_channels=c_in,
+        out_channels=c_out,
+        kernel_size=kernel,
+        stride=stride,
+        padding=tuple(padding),
+        output_padding=tuple(output_padding),
+        groups=groups,
+        bias=bias,
+        dilation=dilation
+    )
 
 
 def remove_trained(folder):
