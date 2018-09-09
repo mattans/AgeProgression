@@ -31,6 +31,17 @@ def str_to_gender(s):
     else:
         raise KeyError("No gender found")
 
+
+def str_to_bool(s):
+    s = s.lower()
+    if s in ('true', 't', 'yes', 'y', '1'):
+        return True
+    elif s in ('false', 'f', 'no', 'n', 'o'):
+        return False
+    else:
+        raise KeyError("Invalid boolean")
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='AgeProgression on PyTorch.', formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--mode', choices=['train', 'test'], default='train')
@@ -65,13 +76,14 @@ if __name__ == '__main__':
     # test params
     parser.add_argument('--age', '-a', required=False, type=int)
     parser.add_argument('--gender', '-g', required=False, type=str_to_gender)
+    parser.add_argument('--watermark', '-w', action='store_true')
 
     # shared params
     parser.add_argument('--cpu', '-c', action='store_true', help='Run on CPU even if CUDA is available.')
     parser.add_argument('--load', '-l', required=False, default=None, help='Trained models path for pre-training or for testing')
     parser.add_argument('--input', '-i', default=None, help='Training dataset path (default is {}) or testing image path'.format(default_train_results_dir()))
     parser.add_argument('--output', '-o', default='')
-    parser.add_argument('--z', dest='z_channels', default=50, type=int, help='Length of Z vector')
+    parser.add_argument('-z', dest='z_channels', default=50, type=int, help='Length of Z vector')
     args = parser.parse_args()
 
     consts.NUM_Z_CHANNELS = args.z_channels
@@ -93,21 +105,16 @@ if __name__ == '__main__':
         data_src = args.input or os.path.join('.', 'data', 'UTKFace')
         print("Data folder is {}".format(data_src))
         results_dest = args.output or default_train_results_dir()
+        os.makedirs(results_dest, exist_ok=True)
         print("Results folder is {}".format(results_dest))
 
-        #Create info text file besides the epochs directories
-
-        path_str = os.path.join(results_dest, 'results')
-        try:
-            os.remove(os.path.join(path_str, 'log_results.log'))
-        except:
-            if not os.path.exists(path_str):
-                os.makedirs(path_str)
-        with open(os.path.join(results_dest , 'session_arguments.txt'), 'a') as info_file:
+        with open(os.path.join(results_dest, 'session_arguments.txt'), 'w') as info_file:
             info_file.write(' '.join(sys.argv))
 
-
-        logging.basicConfig(filename=os.path.join(path_str , 'log_results.log'), level=logging.DEBUG)
+        log_path = os.path.join(results_dest, 'log_results.log')
+        if os.path.exists(log_path):
+            os.remove(log_path)
+        logging.basicConfig(filename=log_path, level=logging.DEBUG)
 
 
         net.teach(
@@ -130,10 +137,14 @@ if __name__ == '__main__':
         net.load(path=args.load, slim=True)
 
         results_dest = args.output or default_test_results_dir()
-        try:
+        if not os.path.isdir(results_dest):
             os.makedirs(results_dest)
-        except:
-            pass
 
-        img = pil_to_model_tensor_transform(pil_loader(args.input)).to(net.device)
-        net.test_single(img_tensor=img, age=args.age, gender=args.gender, target=results_dest)
+        image_tensor = pil_to_model_tensor_transform(pil_loader(args.input)).to(net.device)
+        net.test_single(
+            image_tensor=image_tensor,
+            age=args.age,
+            gender=args.gender,
+            target=results_dest,
+            watermark=args.watermark
+        )

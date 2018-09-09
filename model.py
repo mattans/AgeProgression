@@ -1,6 +1,5 @@
-import os
-import datetime
 import logging
+import random
 from collections import OrderedDict, defaultdict
 import numpy as np
 import cv2
@@ -239,10 +238,60 @@ class Net(object):
     def __repr__(self):
         return os.linesep.join([repr(subnet) for subnet in (self.E, self.Dz, self.G)])
 
-    def test_single(self, img_tensor, age, gender, target):
+    def morph(self, image_tensors, ages, genders, length, target):
 
         self.eval()
-        batch = img_tensor.repeat(consts.NUM_AGES, 1, 1, 1).to(device=self.device)  # N x D x H x W
+
+        original_vectors = [None, None]
+        for i in range(2):
+            z = self.E(image_tensors[i].unsqueeze(0))
+            l = Label(ages[i], genders[i]).to_tensor(normalize=True).unsqueeze(0).to(device=z.device)
+            z_l = torch.cat((z, l), 1)
+            original_vectors[i] = z_l
+
+        z_vectors = torch.zeros((length + 1, z_l.size(1)), dtype=z_l.dtype)
+        for i in range(length + 1):
+            z_vectors[i, :] = original_vectors[0].mul(length - i).div(length) + original_vectors[1].mul(i).div(length)
+
+        generated = self.G(z_vectors)
+        dest = os.path.join(target, 'morph.png')
+        save_image_normalized(tensor=generated, filename=dest, nrow=generated.size(0))
+        print_timestamp("Saved test result to " + dest)
+        return dest
+
+    def kids(self, image_tensors, length, target):
+
+        self.eval()
+
+        original_vectors = [None, None]
+        for i in range(2):
+            z = self.E(image_tensors[i].unsqueeze(0)).squeeze(0)
+            original_vectors[i] = z
+
+        z_vectors = torch.zeros((length, consts.NUM_Z_CHANNELS), dtype=z.dtype)
+        z_l_vectors = torch.zeros((length, consts.NUM_Z_CHANNELS + consts.LABEL_LEN_EXPANDED), dtype=z.dtype)
+        for i in range(length):
+            for j in range(consts.NUM_Z_CHANNELS):
+                r = random.random()
+                z_vectors[i][j] = original_vectors[0][j].mul(r) + original_vectors[1][j].mul(1 - r)
+
+            fake_age = 0
+            fake_gender = random.choice([consts.MALE, consts.FEMALE])
+            l = Label(fake_age, fake_gender).to_tensor(normalize=True).to(device=z.device)
+            z_l = torch.cat((z_vectors[i], l), 0)
+            z_l_vectors[i, :] = z_l
+
+        generated = self.G(z_l_vectors)
+        dest = os.path.join(target, 'kids.png')
+        save_image_normalized(tensor=generated, filename=dest, nrow=generated.size(0))
+        print_timestamp("Saved test result to " + dest)
+        return dest
+
+
+    def test_single(self, image_tensor, age, gender, target, watermark):
+
+        self.eval()
+        batch = image_tensor.repeat(consts.NUM_AGES, 1, 1, 1).to(device=self.device)  # N x D x H x W
         z = self.E(batch)  # N x Z
 
         gender_tensor = -torch.ones(consts.NUM_GENDERS)
@@ -258,31 +307,35 @@ class Net(object):
 
         generated = self.G(z_l)
 
-        # img_tensor = img_tensor.transpose(0, 1).transpose(1, 2) #Dimenssion transform
-        img_tensor = img_tensor.permute(1, 2, 0) #Dimenssion transform
-        img_tensor = 255 * one_sided(img_tensor.numpy())
-        img_tensor = np.ascontiguousarray(img_tensor, dtype=np.uint8)
+        if watermark:
+            image_tensor = image_tensor.permute(1, 2, 0)
+            image_tensor = 255 * one_sided(image_tensor.numpy())
+            image_tensor = np.ascontiguousarray(image_tensor, dtype=np.uint8)
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            bottomLeftCornerOfText = (2, 25)
+            fontScale = 0.5
+            fontColor = (0, 128, 0)  # dark green, should be visible on most skin colors
+            lineType = 2
+            cv2.putText(
+                image_tensor,
+                '{}, {}'.format(["Male", "Female"][gender], age),
+                bottomLeftCornerOfText,
+                font,
+                fontScale,
+                fontColor,
+                lineType,
 
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        bottomLeftCornerOfText = (2, 25)
-        fontScale = 0.5
-        fontColor = (0, 128, 0)  # dark green, should be visible on most skin colors
-        lineType = 2
-        cv2.putText(
-            img_tensor,
-            '{}, {}'.format(["Male", "Female"][gender], age),
-            bottomLeftCornerOfText,
-            font,
-            fontScale,
-            fontColor,
-            lineType,
+            )
+            image_tensor = two_sided(torch.from_numpy(image_tensor / 255.0)).float().permute(2, 0, 1)
 
-        )
-        img_tensor = two_sided(torch.from_numpy(img_tensor / 255.0)).float()
-        # img_tensor = img_tensor.transpose(0, 1).transpose(0, 2)
-        img_tensor = img_tensor.permute(2, 0, 1)
+        joined = torch.cat((image_tensor.unsqueeze(0), generated), 0)
 
-        joined = torch.cat((img_tensor.unsqueeze(0), generated), 0) # Conver one image to 1 sized batch
+        joined = nn.ConstantPad2d(padding=4, value=-1)(joined)
+        for img_idx in (0, Label.age_transform(age) + 1):
+            for elem_idx in (0, 1, 2, 3, -4, -3, -2, -1):
+                joined[img_idx, :, elem_idx, :] = 1  # color border white
+                joined[img_idx, :, :, elem_idx] = 1  # color border white
+
 
         dest = os.path.join(target, 'menifa.png')
         save_image_normalized(tensor=joined, filename=dest, nrow=joined.size(0))

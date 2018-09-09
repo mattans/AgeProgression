@@ -18,7 +18,7 @@ import consts
 
 
 def save_image_normalized(*args, **kwargs):
-    save_image(*args, **kwargs, normalize=True, range=(-1, 1))
+    save_image(*args, **kwargs, normalize=True, range=(-1, 1), padding=4)
 
 
 def two_sided(x):
@@ -102,17 +102,23 @@ def str_to_tensor(text, normalize=False):
 class Label(namedtuple('Label', ('age', 'gender'))):
     def __init__(self, age, gender):
         super(Label, self).__init__()
-        _age = self.age - 1
-        if _age < 20:
-            self.age_group = max(_age // 5, 0)  # first 4 age groups are for kids <= 20, 5 years intervals
-        else:
-            self.age_group = min(4 + (_age - 20) // 10, consts.NUM_AGES - 1)  # last (6?) age groups are for adults > 20, 10 years intervals
+        self.age_group = self.age_transform(self.age)
 
     def to_str(self):
         return '%d.%d' % (self.age_group, self.gender)
 
-    def to_tensor(self):
-        return str_to_tensor(self.to_str())
+    @staticmethod
+    def age_transform(age):
+        age -= 1
+        if age < 20:
+            # first 4 age groups are for kids <= 20, 5 years intervals
+            return max(age // 5, 0)
+        else:
+            # last (6?) age groups are for adults > 20, 10 years intervals
+            return min(4 + (age - 20) // 10, consts.NUM_AGES - 1)
+
+    def to_tensor(self, normalize=False):
+        return str_to_tensor(self.to_str(), normalize=normalize)
 
 
 
