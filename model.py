@@ -367,11 +367,6 @@ class Net(object):
         input_output_loss = l1_loss
         nrow = round((2 * batch_size)**0.5)
 
-        log_path = os.path.join(where_to_save, 'log_results.log')
-        if os.path.exists(log_path):
-            os.remove(r'results/log_results.log')
-        logging.basicConfig(filename=r'results/log_results.log', level=logging.DEBUG)
-
         # save_image_normalized(tensor=validate_images, filename=where_to_save+"/base.png")
 
         for optimizer in (self.eg_optimizer, self.dz_optimizer, self.di_optimizer):
