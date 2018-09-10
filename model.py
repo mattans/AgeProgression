@@ -442,8 +442,9 @@ class Net(object):
                     dg_loss = 0.0001 * bce_with_logits_loss(d_i_output, torch.ones_like(d_i_output))
                     losses['dg'].append(dg_loss.item())
 
+                    # this loss is only for debugging
                     uni_diff_loss = (uni_loss(z.cpu().detach()) - uni_loss(z_prior.cpu().detach())) / batch_size
-                    losses['uni_diff'].append(uni_diff_loss)
+                    # losses['uni_diff'].append(uni_diff_loss)
 
 
                     # Start back propagation
@@ -490,16 +491,15 @@ class Net(object):
 
                         loss = input_output_loss(images, generated)
 
-                        joined = torch.cat((generated, images), 0)
+                        joined = merge_images(images, generated)  # torch.cat((generated, images), 0)
 
-                        file_name = os.path.join(where_to_save_epoch , 'validation.png')
+                        file_name = os.path.join(where_to_save_epoch, 'validation.png')
                         save_image_normalized(tensor=joined, filename=file_name, nrow=nrow)
 
                         losses['valid'].append(loss.item())
                         break
 
 
-                # print(mean(epoch_eg_loss), mean(epoch_eg_valid_loss), mean(epoch_tv_loss), mean(epoch_uni_loss), cp_path)
                 loss_tracker.append_many(**{k: mean(v) for k, v in losses.items()})
                 loss_tracker.plot()
 

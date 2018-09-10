@@ -140,7 +140,7 @@ def default_test_results_dir(eval=True):
 
 
 def print_timestamp(s):
-    print("[{}] {}".format(datetime.datetime.now().strftime(fmt_t), s))
+    print("[{}] {}".format(datetime.datetime.now().strftime(fmt_t.replace('_', ':')), s))
 
 
 class LossTracker(object):
@@ -285,3 +285,12 @@ def remove_trained(folder):
                     print("Failed removing {}: {}".format(tm, e))
         if removed_ctr > 0:
             print("Removed {} trained models from {}".format(removed_ctr, folder))
+
+
+def merge_images(batch1, batch2):
+    assert batch1.shape == batch2.shape
+    merged = torch.zeros(batch1.size(0) * 2, batch1.size(1), batch1.size(2), batch1.size(3), dtype=batch1.dtype)
+    for i, (image1, image2) in enumerate(zip(batch1, batch2)):
+        merged[2 * i] = image1
+        merged[2 * i + 1] = image2
+    return merged
