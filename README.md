@@ -12,11 +12,11 @@ The system architecture was written in Python 3.7 and PyTorch 0.4.1, with attemp
 
 ### Encoder
 
-![alt Encoder with 5 convolutional layers and a fully connected layer.  Viewing from left to right, faceimages of dimensions 128×128×3 are transformed into unlabeled Z vectors of size 50 in a latent space.](https://raw.githubusercontent.com/username/projectname/branch/path/to/encoder.png)
+![alt Encoder with 5 convolutional layers and a fully connected layer.  Viewing from left to right, faceimages of dimensions 128×128×3 are transformed into unlabeled Z vectors of size 50 in a latent space.](https://github.com/mattans/AgeProgression/blob/master/encoder.png)
 
 ### Generator
 
-![alt  Generator with 7 deconvolutional layers and a fully connected layer.  Viewing from left to right,labeled Z vectors of size 70 in a latent space are transformed into face images of dimensions 128×128×3.](https://raw.githubusercontent.com/username/projectname/branch/path/to/generator.png)
+![alt  Generator with 7 deconvolutional layers and a fully connected layer.  Viewing from left to right,labeled Z vectors of size 70 in a latent space are transformed into face images of dimensions 128×128×3.](https://github.com/mattans/AgeProgression/blob/master/encoder.png)
 
 ### Training
 
