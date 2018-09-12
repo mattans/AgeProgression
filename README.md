@@ -34,6 +34,10 @@ Discriminator on images with 4 convolutional layers and 2 fully connected layers
 
 For  training,  we  used  the  UTKFace  dataset,  which  was  collected  by  the  original  authors  of  the  articleand tested in their implementation.  UTKFace contains over 20,000 aligned and cropped face images withtheir appropriate labels.  We wrote a special utility, the UTKFace Labeler, which sorts the dataset imagesto separated folders based on the label, to match with PyTorch demands that classes are determined byfolders structure.
 
+```
+how to train
+```
+
 ## Results
 
 ### VAE Results
@@ -41,7 +45,11 @@ For  training,  we  used  the  UTKFace  dataset,  which  was  collected  by  the
 Every two columns are the input image and the reconstructed image where the input image is on the left
 ![alt  ](https://github.com/mattans/AgeProgression/blob/master/VAEResults.PNG)
 
-### Age Progression
+### Age Progression/ Regression
+
+```
+how to run progressing
+```
 
 The input image is on the left and afterwards there's the result for each age group, starting from youngest.
 ![alt  ](https://github.com/mattans/AgeProgression/blob/master/ageManifest.PNG)
@@ -51,10 +59,12 @@ The input image is on the left and afterwards there's the result for each age gr
 As an input there are two different inputs and the output is the possible merged child of the individuals
 
 Inputs:
+
 ![alt  ](https://github.com/mattans/AgeProgression/blob/master/im1.PNG)
 ![alt  ](https://github.com/mattans/AgeProgression/blob/master/im2.PNG)
 
 Output:
+
 ![alt  ](https://github.com/mattans/AgeProgression/blob/master/morf.PNG)
 
 ## Authors
