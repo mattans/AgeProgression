@@ -1,8 +1,12 @@
+from utils import *
+import consts
+
 import logging
 import random
-from collections import OrderedDict, defaultdict
-import numpy as np
+from collections import OrderedDict
 import cv2
+import imageio
+from PIL import Image
 
 import torch
 import torch.nn as nn
@@ -10,13 +14,7 @@ from torch.nn.functional import l1_loss, mse_loss
 from torch.nn.functional import binary_cross_entropy_with_logits as bce_with_logits_loss
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from torch.utils.data.sampler import SubsetRandomSampler
-import torchvision
-from torchvision.datasets import ImageFolder
-from torchvision.datasets.folder import pil_loader
 
-import consts
-from utils import *
 
 
 class Encoder(nn.Module):
@@ -406,10 +404,10 @@ class Net(object):
                     # Total Variance Regularization Loss
                     reg = l1_loss(generated[:, :, :, :-1], generated[:, :, :, 1:]) + l1_loss(generated[:, :, :-1, :], generated[:, :, 1:, :])
 
-                    #reg = (
+                    # reg = (
                     #        torch.sum(torch.abs(generated[:, :, :, :-1] - generated[:, :, :, 1:])) +
                     #        torch.sum(torch.abs(generated[:, :, :-1, :] - generated[:, :, 1:, :]))
-                    #) / float(generated.size(0))
+                    # ) / float(generated.size(0))
                     reg_loss = 0 * reg
                     reg_loss.to(self.device)
                     losses['reg'].append(reg_loss.item())
@@ -422,7 +420,6 @@ class Net(object):
                     dz_loss = bce_with_logits_loss(d_z, torch.zeros_like(d_z))
                     dz_loss_tot = (dz_loss + dz_loss_prior)
                     losses['dz'].append(dz_loss_tot.item())
-
 
                     # Encoder\DiscriminatorZ Loss
                     ez_loss = 0.0001 * bce_with_logits_loss(d_z, torch.ones_like(d_z))
@@ -604,3 +601,37 @@ class Net(object):
             raise FileNotFoundError("Nothing was loaded from {}".format(path))
 
 
+def create_list_of_img_paths(pattern, start, step):
+    result = []
+    fname = pattern.format(start)
+    while os.path.isfile(fname):
+        result.append(fname)
+        start += step
+        fname = pattern.format(start)
+    return result
+
+
+def create_gif(img_paths, dst, start, step):
+    BLACK = (255, 255, 255)
+    WHITE = (255, 255, 255)
+    MAX_LEN = 1024
+    frames = []
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    corner = (2, 25)
+    fontScale = 0.5
+    fontColor = BLACK
+    lineType = 2
+    for path in img_paths:
+        image = cv2.imread(path)
+        height, width = image.shape[:2]
+        current_max = max(height, width)
+        if current_max > MAX_LEN:
+            height = int(height / current_max * MAX_LEN)
+            width = int(width / current_max * MAX_LEN)
+            image = cv2.resize(image, (width, height), interpolation=cv2.INTER_CUBIC)
+        image = cv2.copyMakeBorder(image, 50, 0, 0, 0, cv2.BORDER_CONSTANT, WHITE)
+        cv2.putText(image, 'Epoch: ' + str(start), corner, font, fontScale, fontColor, lineType)
+        image = image[..., ::-1]
+        frames.append(image)
+        start += step
+    imageio.mimsave(dst, frames, 'GIF', duration=0.5)

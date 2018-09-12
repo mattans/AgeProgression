@@ -102,7 +102,7 @@ if __name__ == '__main__':
             net.load(args.load)
             print("Loading pre-trained models from {}".format(args.load))
 
-        data_src = args.input or os.path.join('.', 'data', 'UTKFace')
+        data_src = args.input or consts.UTKFACE_DEFAULT_PATH
         print("Data folder is {}".format(data_src))
         results_dest = args.output or default_train_results_dir()
         os.makedirs(results_dest, exist_ok=True)
