@@ -16,7 +16,7 @@ The system architecture was written in Python 3.7 and PyTorch 0.4.1, with attemp
 
 ### Generator
 
-![alt  Generator with 7 deconvolutional layers and a fully connected layer.  Viewing from left to right,labeled Z vectors of size 70 in a latent space are transformed into face images of dimensions 128×128×3.](https://github.com/mattans/AgeProgression/blob/master/encoder.png)
+![alt  Generator with 7 deconvolutional layers and a fully connected layer.  Viewing from left to right,labeled Z vectors of size 70 in a latent space are transformed into face images of dimensions 128×128×3.](https://github.com/mattans/AgeProgression/blob/master/generator.png)
 
 ### Training
 
