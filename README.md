@@ -10,6 +10,8 @@ As participants of the 2018 Workshop in Machine Learning Applications for Comput
 
 The system architecture was written in Python 3.7 and PyTorch 0.4.1, with attempts to keep the code ascompatible as possible with older versions of Python 3 and PyTorch.  Other external packages that wereused are NumPy, scikit-learn, OpenCV, imageio and Matplotlib.
 
+![alt  ](https://github.com/mattans/AgeProgression/blob/master/architecture.PNG)
+
 ### Encoder
 
 Encoder with 5 convolutional layers and a fully connected layer.  Viewing from left to right, faceimages of dimensions 128×128×3 are transformed into unlabeled Z vectors of size 50 in a latent space.
@@ -23,10 +25,10 @@ Generator with 7 deconvolutional layers and a fully connected layer.  Viewing fr
 ### Descriminators:
 
 Discriminator on Z with 4 fully connected layers.
-![alt  ](https://github.com/mattans/AgeProgression/blob/master/disZ.png)
+![alt  ](https://github.com/mattans/AgeProgression/blob/master/disZ.PNG)
 
 Discriminator on images with 4 convolutional layers and 2 fully connected layers.
-![alt  ](https://github.com/mattans/AgeProgression/blob/master/disImg.png)
+![alt  ](https://github.com/mattans/AgeProgression/blob/master/disImg.PNG)
 
 ## Training
 
@@ -34,26 +36,26 @@ For  training,  we  used  the  UTKFace  dataset,  which  was  collected  by  the
 
 ## Results
 
-###VAE Results
+### VAE Results
 
 Every two columns are the input image and the reconstructed image where the input image is on the left
-![alt  ](https://github.com/mattans/AgeProgression/blob/master/VAEResults.png)
+![alt  ](https://github.com/mattans/AgeProgression/blob/master/VAEResults.PNG)
 
-###Age Progression
+### Age Progression
 
 The input image is on the left and afterwards there's the result for each age group, starting from youngest.
-![alt  ](https://github.com/mattans/AgeProgression/blob/master/ageManifest.png)
+![alt  ](https://github.com/mattans/AgeProgression/blob/master/ageManifest.PNG)
 
-###Merge between two different inputs
+### Merge between two different inputs
 
 As an input there are two different inputs and the output is the possible merged child of the individuals
 
 Inputs:
-![alt  ](https://github.com/mattans/AgeProgression/blob/master/im1.png)
-![alt  ](https://github.com/mattans/AgeProgression/blob/master/im2.png)
+![alt  ](https://github.com/mattans/AgeProgression/blob/master/im1.PNG)
+![alt  ](https://github.com/mattans/AgeProgression/blob/master/im2.PNG)
 
 Output:
-![alt  ](https://github.com/mattans/AgeProgression/blob/master/morf.png)
+![alt  ](https://github.com/mattans/AgeProgression/blob/master/morf.PNG)
 
 ## Authors
 
@@ -66,4 +68,5 @@ This project is licensed under the TAU License
 ## Acknowledgments
 
 * https://arxiv.org/abs/1702.08423
+* https://github.com/wangxiao5791509/Age-Progression-Regression-by-CAAE
 * Founded by AWS
