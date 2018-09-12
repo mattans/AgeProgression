@@ -1,6 +1,6 @@
 # PyTorch Implementation of Age Progression/Regression byConditional Adversarial Autoencoder
 
-We developed a few applications based on Jupyter Notebook to test the system with the trained modelsinteractively.  As inputs, users can choose between already labeled images from UTKFace, to observe theresults with regard to parameters such as age, gender, and race.  The applications, referred as Games, canbe seen in Figures 7 to 9.
+We developed a few applications based on Jupyter Notebook to test the system with the trained modelsinteractively.  As inputs, users can choose between already labeled images from UTKFace, to observe theresults with regard to parameters such as age, gender, and race. 
 
 ## Motivation
 
@@ -69,7 +69,7 @@ Output:
 
 ## Authors
 
-Mattan Serry, Hila Balahsan and Dor AltBlavatnik School of Computer Science, Tel Aviv University
+Mattan Serry, Hila Balahsan and Dor Alt
 
 ## License
 
