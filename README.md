@@ -1,12 +1,13 @@
-# PyTorch Implementation of Age Progression/Regression byConditional Adversarial Autoencoder
+# PyTorch Implementation of Age Progression/Regression by Conditional Adversarial Autoencoder
 
-## Motivation
-
-As participants of the 2018 Workshop in Machine Learning Applications for Computer Graphics (Cohen-Or, Fogel), we were exposed to many interesting ideas in the fields of artificial intelligence and computervision,  such  as  variational  autoencoders  (VAE)  and  deep  convolutional  generative  adversarial  networks(DCGAN).  In the latter part of the course, we were asked to choose a paper to study and  implement. Skimming through articles, we discovered an interesting paper from 2017 titled Age Progression/Regressionby Conditional Adversarial Autoencoder(Zhang, Song, et al.). The article presented a method to performage modification on a given face image, with exciting utilization from recreational applications to assist the searches on missing children.
+As participants of the 2018 Workshop in Machine Learning Applications for Computer Graphics (Cohen-Or, Fogel), we were exposed to many interesting ideas in the fields of artificial intelligence and computervision, such as variational autoencoders (VAE) and deep convolutional generative adversarial networks (DCGAN). In the latter part of the course, we were asked to choose a paper to study and  implement. Skimming through articles, we discovered an interesting paper from 2017 titled [Age Progression/Regression by Conditional Adversarial Autoencoder](http://web.eecs.utk.edu/~zzhang61/docs/papers/2017_CVPR_Age.pdf)
+Age Progression/Regressionby Conditional Adversarial Autoencoder (Zhang, Song, et al.). The article presented a method to performage modification on a given face image, with exciting utilization from recreational applications to assist the searches of missing children.
 
 ## System Architecture
 
 The system architecture was written in Python 3.7 and PyTorch 0.4.1, with attempts to keep the code ascompatible as possible with older versions of Python 3 and PyTorch.  Other external packages that wereused are NumPy, scikit-learn, OpenCV, imageio and Matplotlib.
+
+The network is comprised of an encoder which transforms RGB images to Z vectors (vectors in a latent space), a generator which transforms vectors to RGB images, a discriminator that measures (and forces) uniform distribution on the encoder's output and a discriminator that measures (and forces) realistic properties on the generator's output.
 
 ### Encoder
 
@@ -26,55 +27,52 @@ Discriminator on Z with 4 fully connected layers.
 Discriminator on images with 4 convolutional layers and 2 fully connected layers.
 ![alt  ](https://github.com/mattans/AgeProgression/blob/master/disImg.PNG)
 
+
+### Prerequisites
+
+* Python 3.7
+* PyTorch 0.4.1
+* Python data schience and graphic packages: NumPy, scikit-learn, OpenCV, imageio and Matplotlib
+
+
 ## Training
 
-For  training,  we  used  the  UTKFace  dataset,  which  was  collected  by  the  original  authors  of  the  articleand tested in their implementation.  UTKFace contains over 20,000 aligned and cropped face images withtheir appropriate labels.  We wrote a special utility, the UTKFace Labeler, which sorts the dataset imagesto separated folders based on the label, to match with PyTorch demands that classes are determined byfolders structure.
+For training, we use the [UTKFace dataset](http://aicip.eecs.utk.edu/wiki/UTKFace), which was collected by the original authors of the article and tested in their implementation.  UTKFace contains over 20,000 aligned and cropped face images withtheir appropriate labels. We wrote a special utility, the UTKFace Labeler, which sorts the dataset images to separated folders based on the label, to match with PyTorch demands that classes are determined by folders structure.
 
-```
-how to train
-```
+To start a training session run ``` main.py --mode train <num of epochs> --input <dataset path> --output <results path>```
+
+For the full list of options for the training session run  ``` main.py --help ```
 
 ## Results
 
-We developed a few applications based on Jupyter Notebook to test the system with the trained modelsinteractively.  As inputs, users can choose between already labeled images from UTKFace, to observe theresults with regard to parameters such as age, gender, and race. 
+We developed a few applications based on Jupyter Notebook to test the system with the trained models interactively.  As inputs, users can choose between already labeled images from UTKFace, to observe the results with regard to parameters such as age, gender, and race. 
 
 ### Validation Output
 
-Every two columns are the input image and the reconstructed image where the input image is on the left
-![alt  ](https://github.com/mattans/AgeProgression/blob/master/VAEResults.PNG)
+Before training, one random batch of images is separated from the dataset and used for validation, meaning that the network does not back propagate losses on it. We expect that the losses on the validation batch will decrease at each epoch similarly to their change in the rest of the dataset. After every epoch, an image comparing the original validation images with the reconstructed images is saved to the epoch's folder, allowing a human eye to monitor the training session. An example can be seen here:
 
-### Age Progression/Regression
+![alt  ](./doc/validation.gif)
 
-```
-how to run progressing
-```
+Original images are on the right and generated images are on the left. It can be seen that centered, frontal images with natural postures reconstruct more accurately than others. Also, rare objects such as glasses, jewelry and watermarks are subdued.
 
-The input image is on the left and afterwards there's the result for each age group, starting from youngest.
-![alt  ](https://github.com/mattans/AgeProgression/blob/master/ageManifest.PNG)
+## Loss Analysis
 
-### Merge between two different inputs
+At the end of each epoch, all of the calculated losses are passed to a class we designed, called Loss Tracker. The loss tracker object produces graphs of the changes in losses over epochs and saves them, again to allow a human to analyze and verify the training session. The loss tracker object also enables pre-programmed heuristics to address issues such as overfitting, underfitting, unknown fitting, and drift. It is also possible to watch the graphs update in a new window during training. An example can be seen here:
 
-As an input there are two different inputs and the output is the possible merged child of the individuals
+![alt  ](./doc/losses.gif)
 
-Inputs:
-
-![alt  ](https://github.com/mattans/AgeProgression/blob/master/im1.PNG)
-![alt  ](https://github.com/mattans/AgeProgression/blob/master/im2.PNG)
-
-Output:
-
-![alt  ](https://github.com/mattans/AgeProgression/blob/master/morf.PNG)
 
 ## Authors
 
-Mattan Serry, Hila Balahsan and Dor Alt
+* **Mattan Serry**
+* **Hila Balahsan**
+* **Dor Alt**
 
 ## License
 
-This project is licensed under the TAU License 
+This project is licensed under the TAU License
 
 ## Acknowledgments
 
-* https://arxiv.org/abs/1702.08423
-* https://github.com/wangxiao5791509/Age-Progression-Regression-by-CAAE
-* Founded by AWS
+* [TensorFlow implemenation of of Age Progression/Regression by Conditional Adversarial Autoencoder](https://github.com/ZZUTK/Face-Aging-CAAE)
+* This project ws supported by Amazon Web Services.
