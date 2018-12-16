@@ -114,5 +114,5 @@ This project is licensed under the MIT License.
 ## Acknowledgments
 
 * [TensorFlow implemenation of Age Progression/Regression by Conditional Adversarial Autoencoder](https://github.com/ZZUTK/Face-Aging-CAAE)
-* Contributions to this project, such as providing helper functions and offering insight, were made by Dor Alt and Hila Balahsan.
+* Contributions to this project, such as verifying label correctness, performing extensive simulations over the system, providing helper functions and offering insight, were made by Dor Alt and Hila Balahsan.
 * This project was supported by Amazon Web Services.
