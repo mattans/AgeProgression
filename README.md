@@ -42,11 +42,11 @@ Discriminator on images with 4 convolutional layers and 2 fully connected layers
 
 ## Training
 
-For training, we use the [UTKFace dataset](http://aicip.eecs.utk.edu/wiki/UTKFace), which was collected by the original authors of the article and tested in their implementation.
-UTKFace contains over 20,000 aligned and cropped face images withtheir appropriate labels. We wrote a special utility, the UTKFace Labeler, which sorts the dataset images to separated folders based on the label, to match with PyTorch demands that classes are determined by folders structure.
+For training, the [UTKFace dataset](http://aicip.eecs.utk.edu/wiki/UTKFace) is used, which was collected by the original authors of the article and tested in their implementation.
+UTKFace contains over 20,000 aligned and cropped face images withtheir appropriate labels. A special utility was written, the UTKFace Labeler, which sorts the dataset images to separated folders based on the label, to match with PyTorch demands that classes are determined by folders structure.
 
 Before training, one random batch of images is separated from the dataset and used for validation, meaning that the network does not back propagate losses on it.
-We expect that the losses on the validation batch will decrease at each epoch similarly to their change in the rest of the dataset.
+the losses on the validation batch are expected to decrease at each epoch similarly to their change in the rest of the dataset.
 After every epoch, an image comparing the original validation images with the reconstructed images is saved to the epoch's folder, allowing a human eye to monitor the training session.
 An example can be seen here:
 
@@ -55,7 +55,7 @@ An example can be seen here:
 Original images are on the right and generated images are on the left. It can be seen that centered, frontal images with natural postures reconstruct more accurately than others.
 Also, rare objects such as glasses, jewelry and watermarks are subdued.
 
-At the end of each epoch, all of the calculated losses are passed to a class we designed, called Loss Tracker.
+At the end of each epoch, all of the calculated losses are passed to a class I designed, called Loss Tracker.
 The loss tracker object produces graphs of the changes in losses over epochs and saves them, again to allow a human to analyze and verify the training session.
 The loss tracker object also enables pre-programmed heuristics to address issues such as overfitting, underfitting, unknown fitting, and drift.
 It is also possible to watch the graphs update in a new window during training. An example can be seen here:
@@ -68,12 +68,12 @@ For the full list of options for the training session run  ``` main.py --help ``
 
 ## Applications
 
-We developed a few applications over Jupyter Notebook to test the system with the trained models interactively.
+A few applications were developed over Jupyter Notebook to test the system with the trained models interactively.
 As inputs, users can choose between already labeled images from UTKFace, to observe the results with regard to parameters such as age, gender, and race.
 The applications, referred as Games, can be seen further down this section.
 
 [The Aging Game](./aging_game.ipynb). An input image is fed to the encoder, and the resulted Z vector is fed to the generator ten times, each time with the true gender and a different age group.
-Then, we present the original image next to all of the output images.
+Then, the original image is presented next to all of the output images.
 The output images can be seen as the aging process of a person, from childhood to old age.
 The original image and the generated image of the same age group are marked in a white rectangle, for comparison.
 
