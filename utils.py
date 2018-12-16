@@ -1,46 +1,26 @@
-import consts
 import os
-import threading
-import imageio
-
+import datetime
 from shutil import copyfile
-import numpy as np
+from collections import namedtuple, defaultdict
 import matplotlib.pyplot as plt
-import matplotlib
-from collections import namedtuple
+import numpy as np
+from sklearn.metrics.regression import mean_squared_error as mse
 
 import torch
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
-import datetime
 from torchvision.utils import save_image
-from collections import defaultdict
+
+import consts
 
 
 def save_image_normalized(*args, **kwargs):
-    save_image(*args, **kwargs, normalize=True, range=(-1, 1))
-
-
-
-
-def merge(images, size):
-    h, w = images.shape[2], images.shape[3]
-    img = np.zeros((3, h * size[0], w * size[1]))
-
-    for idx, image in enumerate(images):
-        i = idx % size[1]
-        j = int(idx / size[1])
-        img[0][j * h:j * h + h, i * w:i * w + w] = image[0]
-        img[1][j * h:j * h + h, i * w:i * w + w] = image[1]
-        img[2][j * h:j * h + h, i * w:i * w + w] = image[2]
-
-    return img
+    save_image(*args, **kwargs, normalize=True, range=(-1, 1), padding=4)
 
 
 def two_sided(x):
     return 2 * (x - 0.5)
-
 
 def one_sided(x):
     return (x + 1) / 2
@@ -50,7 +30,7 @@ pil_to_model_tensor_transform = transforms.Compose(
     [
         transforms.Resize(size=(128, 128)),
         transforms.ToTensor(),
-        transforms.Lambda(lambda x: 2 * x - 1)  # [0:1] -> [-1:1]
+        transforms.Lambda(lambda t: t.mul(2).sub(1))  # Tensor elements domain: [0:1] -> [-1:1]
     ]
 )
 
@@ -105,12 +85,14 @@ def get_fgnet_person_loader(root):
     return DataLoader(dataset=ImageFolder(root, transform=pil_to_model_tensor_transform), batch_size=1)
 
 
-def str_to_tensor(text):
+def str_to_tensor(text, normalize=False):
     age_group, gender = text.split('.')
     age_tensor = -torch.ones(consts.NUM_AGES)
     age_tensor[int(age_group)] *= -1
     gender_tensor = -torch.ones(consts.NUM_GENDERS)
     gender_tensor[int(gender)] *= -1
+    if normalize:
+        gender_tensor = gender_tensor.repeat(consts.NUM_AGES // consts.NUM_GENDERS)
     result = torch.cat((age_tensor, gender_tensor), 0)
     return result
 
@@ -118,33 +100,32 @@ def str_to_tensor(text):
 class Label(namedtuple('Label', ('age', 'gender'))):
     def __init__(self, age, gender):
         super(Label, self).__init__()
-        _age = self.age - 1
-        if _age < 20:
-            self.age_group = max(_age // 5, 0)  # first 4 age groups are for kids <= 20, 5 years intervals
-        else:
-            self.age_group = min(4 + (_age - 20) // 10, consts.NUM_AGES - 1)  # last (6?) age groups are for adults > 20, 10 years intervals
+        self.age_group = self.age_transform(self.age)
 
     def to_str(self):
         return '%d.%d' % (self.age_group, self.gender)
 
-    def to_tensor(self):
-        return str_to_tensor(self.to_str())
+    @staticmethod
+    def age_transform(age):
+        age -= 1
+        if age < 20:
+            # first 4 age groups are for kids <= 20, 5 years intervals
+            return max(age // 5, 0)
+        else:
+            # last (6?) age groups are for adults > 20, 10 years intervals
+            return min(4 + (age - 20) // 10, consts.NUM_AGES - 1)
 
+    def to_tensor(self, normalize=False):
+        return str_to_tensor(self.to_str(), normalize=normalize)
 
-
-def optimizer_and_criterion(criter_class, optim_class, *modules, **optim_args):
-    params = []
-    for module in modules:
-        params.extend(list(module.parameters()))
-    optimizier = optim_class(params=params, **optim_args)
-    return optimizier, criter_class(reduction='elementwise_mean')
 
 
 fmt_t = "%H_%M"
 fmt = "%Y_%m_%d"
 
-def default_train_results_dir(eval=True):
-    return os.path.join('.', 'trained_models', datetime.datetime.now().strftime(fmt) if eval else fmt)
+def default_train_results_dir():
+    return os.path.join('.', 'trained_models', datetime.datetime.now().strftime(fmt), datetime.datetime.now().strftime(fmt_t))
+
 
 def default_where_to_save(eval=True):
     path_str = os.path.join('.', 'results', datetime.datetime.now().strftime(fmt), datetime.datetime.now().strftime(fmt_t))
@@ -156,15 +137,18 @@ def default_test_results_dir(eval=True):
     return os.path.join('.', 'test_results', datetime.datetime.now().strftime(fmt) if eval else fmt)
 
 
+def print_timestamp(s):
+    print("[{}] {}".format(datetime.datetime.now().strftime(fmt_t.replace('_', ':')), s))
+
+
 class LossTracker(object):
-    def __init__(self, *names, **kwargs):
-        assert 'train' in names and 'valid' in names, str(names)
+    def __init__(self, use_heuristics=False, plot=False, eps=1e-3):
+        # assert 'train' in names and 'valid' in names, str(names)
         self.losses = defaultdict(lambda: [])
         self.paths = []
         self.epochs = 0
-        self.use_heuristics = kwargs.get('use_heuristics', False)
-        self.eps = abs(kwargs.get('eps', 1e-3))
-        if(names[-1] == True):
+        self.use_heuristics = use_heuristics
+        if plot:
            # print("names[-1] - "+names[-1])
             plt.ion()
             plt.show()
@@ -217,9 +201,8 @@ class LossTracker(object):
         plt.ylabel('Averaged loss')
         plt.title('Losses by epoch')
         plt.grid(True)
-        if self.graphic:
-            plt.draw()
-            plt.pause(0.001)
+        plt.draw()
+        plt.pause(0.001)
 
     @staticmethod
     def show():
@@ -237,38 +220,75 @@ class LossTracker(object):
         return str(ret)
 
 
-def get_list_of_labels(lst):
-    new_list = []
-    for label in lst:
-        if 0 <= label <= 5:
-            new_list.append(0)
-        elif 6 <= label <= 10:
-            new_list.append(1)
-        elif 11 <= label <= 15:
-            new_list.append(2)
-        elif 16 <= label <= 20:
-            new_list.append(3)
-        elif 21 <= label <= 30:
-            new_list.append(4)
-        elif 31 <= label <= 40:
-            new_list.append(5)
-        elif 41 <= label <= 50:
-            new_list.append(6)
-        elif 51 <= label <= 60:
-            new_list.append(7)
-        elif 61 <= label <= 70:
-            new_list.append(89)
-        else:
-            new_list.append(9)
-        return new_list
-
-
 def mean(l):
     return np.array(l).mean()
 
-from sklearn.metrics.regression import mean_squared_error as mse
+
 def uni_loss(input):
     assert len(input.shape) == 2
     batch_size, input_size = input.size()
     hist = torch.histc(input=input, bins=input_size, min=-1, max=1)
     return mse(hist, batch_size * torch.ones_like(hist)) / input_size
+
+
+def easy_deconv(in_dims, out_dims, kernel, stride=1, groups=1, bias=True, dilation=1):
+    if isinstance(kernel, int):
+        kernel = (kernel, kernel)
+    if isinstance(stride, int):
+        stride = (stride, stride)
+
+    c_in, h_in, w_in = in_dims
+    c_out, h_out, w_out = out_dims
+
+    padding = [0, 0]
+    output_padding = [0, 0]
+
+    lhs_0 = -h_out + (h_in - 1) * stride[0] + kernel[0]  # = 2p[0] - o[0]
+    if lhs_0 % 2 == 0:
+        padding[0] = lhs_0 // 2
+    else:
+        padding[0] = lhs_0 // 2 + 1
+        output_padding[0] = 1
+
+    lhs_1 = -w_out + (w_in - 1) * stride[1] + kernel[1]  # = 2p[1] - o[1]
+    if lhs_1 % 2 == 0:
+        padding[1] = lhs_1 // 2
+    else:
+        padding[1] = lhs_1 // 2 + 1
+        output_padding[1] = 1
+
+    return torch.nn.ConvTranspose2d(
+        in_channels=c_in,
+        out_channels=c_out,
+        kernel_size=kernel,
+        stride=stride,
+        padding=tuple(padding),
+        output_padding=tuple(output_padding),
+        groups=groups,
+        bias=bias,
+        dilation=dilation
+    )
+
+
+def remove_trained(folder):
+    if os.path.isdir(folder):
+        removed_ctr = 0
+        for tm in os.listdir(folder):
+            tm = os.path.join(folder, tm)
+            if os.path.splitext(tm)[1] == consts.TRAINED_MODEL_EXT:
+                try:
+                    os.remove(tm)
+                    removed_ctr += 1
+                except OSError as e:
+                    print("Failed removing {}: {}".format(tm, e))
+        if removed_ctr > 0:
+            print("Removed {} trained models from {}".format(removed_ctr, folder))
+
+
+def merge_images(batch1, batch2):
+    assert batch1.shape == batch2.shape
+    merged = torch.zeros(batch1.size(0) * 2, batch1.size(1), batch1.size(2), batch1.size(3), dtype=batch1.dtype)
+    for i, (image1, image2) in enumerate(zip(batch1, batch2)):
+        merged[2 * i] = image1
+        merged[2 * i + 1] = image2
+    return merged
