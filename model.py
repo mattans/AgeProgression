@@ -290,7 +290,7 @@ class Net(object):
 
         self.eval()
         batch = image_tensor.repeat(consts.NUM_AGES, 1, 1, 1).to(device=self.device)  # N x D x H x W
-        z = self.E(batch)  # N x Zargs
+        z = self.E(batch)  # N x Z
 
         gender_tensor = -torch.ones(consts.NUM_GENDERS)
         gender_tensor[int(gender)] *= -1
@@ -334,9 +334,13 @@ class Net(object):
                 joined[img_idx, :, elem_idx, :] = 1  # color border white
                 joined[img_idx, :, :, elem_idx] = 1  # color border white
 
-        print (joined.shape)
         dest = os.path.join(target, 'out_{0}_{1}.png'.format(gender, age))
-        #joined[::len(joined)-1]
+
+        #show and save the input and latest age 
+        s_head_tail = False
+        if s_head_tail: joined = joined[::len(joined)-1] #first and last item
+            
+
         save_image_normalized(tensor=joined, filename=dest, nrow=joined.size(0))
         print_timestamp("Saved test result to " + dest)
         return dest
