@@ -4,8 +4,8 @@ import consts
 import logging
 import random
 from collections import OrderedDict
+#import imageio
 import cv2
-import imageio
 from PIL import Image
 
 import torch
@@ -290,7 +290,7 @@ class Net(object):
 
         self.eval()
         batch = image_tensor.repeat(consts.NUM_AGES, 1, 1, 1).to(device=self.device)  # N x D x H x W
-        z = self.E(batch)  # N x Z
+        z = self.E(batch)  # N x Zargs
 
         gender_tensor = -torch.ones(consts.NUM_GENDERS)
         gender_tensor[int(gender)] *= -1
@@ -334,8 +334,9 @@ class Net(object):
                 joined[img_idx, :, elem_idx, :] = 1  # color border white
                 joined[img_idx, :, :, elem_idx] = 1  # color border white
 
-
-        dest = os.path.join(target, 'menifa.png')
+        print (joined.shape)
+        dest = os.path.join(target, 'out_{0}_{1}.png'.format(gender, age))
+        #joined[::len(joined)-1]
         save_image_normalized(tensor=joined, filename=dest, nrow=joined.size(0))
         print_timestamp("Saved test result to " + dest)
         return dest
@@ -465,7 +466,7 @@ class Net(object):
                     now = datetime.datetime.now()
 
                 logging.info('[{h}:{m}[Epoch {e}] Loss: {t}'.format(h=now.hour, m=now.minute, e=epoch, t=loss.item()))
-                print_timestamp(f"[Epoch {epoch:d}] Loss: {loss.item():f}")
+                print_timestamp("[Epoch {epoch:d}] Loss: {loss.item():f}")
                 to_save_models = models_saving in ('always', 'tail')
                 cp_path = self.save(where_to_save_epoch, to_save_models=to_save_models)
                 if models_saving == 'tail':
@@ -609,7 +610,6 @@ def create_list_of_img_paths(pattern, start, step):
         start += step
         fname = pattern.format(start)
     return result
-
 
 def create_gif(img_paths, dst, start, step):
     BLACK = (255, 255, 255)

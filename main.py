@@ -16,10 +16,10 @@ import torch
 
 gc.collect()
 
-assert sys.version_info >= (3, 6),\
-    "This script requires Python >= 3.6"  # TODO 3.7?
-assert tuple(int(ver_num) for ver_num in torch.__version__.split('.')) >= (0, 4, 0),\
-    "This script requires PyTorch >= 0.4.0"  # TODO 0.4.1?
+#assert sys.version_info >= (3, 6),\
+    #"This script requires Python >= 3.6"  # TODO 3.7?
+#assert tuple(int(ver_num) for ver_num in torch.__version__.split('.')) >= (0, 4, 0),\
+    #"This script requires PyTorch >= 0.4.0"  # TODO 0.4.1?
 
 
 def str_to_gender(s):
@@ -66,7 +66,7 @@ if __name__ == '__main__':
              '\tUse this option if you only wish to collect statistics and validation results.{br}'
              'All options except \'never\' will also save when interrupted by the user.'.format(br=os.linesep)
     )
-    parser.add_argument('--batch-size', '--bs', dest='batch_size', default=64, type=int)
+    parser.add_argument('--batch-size', '--bs', dest='batch_size', default=128, type=int)
     parser.add_argument('--weight-decay', '--wd', dest='weight_decay', default=1e-5, type=float)
     parser.add_argument('--learning-rate', '--lr', dest='learning_rate', default=2e-4, type=float)
     parser.add_argument('--b1', '-b', dest='b1', default=0.5, type=float)
