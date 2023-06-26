@@ -11,12 +11,24 @@ import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
-
+from torchvision.utils import make_grid
 import consts
 
+def show(img):
+    npimg = img.detach().numpy()
+    plt.imshow(np.transpose(npimg, (1,2,0)), interpolation='nearest')
+    plt.show()
 
-def save_image_normalized(*args, **kwargs):
-    save_image(*args, **kwargs, normalize=True, range=(-1, 1), padding=4)
+def save_image_normalized(**kwargs):
+    show(make_grid(kwargs["tensor"],
+                    padding=4,
+                    normalize=True,
+                    range=(-1, 1)))
+    save_image(tensor=kwargs["tensor"],
+                filename=kwargs["filename"],
+                normalize=True,
+                range=(-1, 1),
+                padding=4)
 
 
 def two_sided(x):

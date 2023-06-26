@@ -35,10 +35,9 @@ Discriminator on images with 4 convolutional layers and 2 fully connected layers
 
 ### Prerequisites
 
-* Python 3.7
-* PyTorch 0.4.1
+* Python >= 3.5
+* PyTorch >= 0.4.1
 * Python data science and graphic packages: NumPy, scikit-learn, OpenCV, imageio and Matplotlib
-
 
 ## Training
 
